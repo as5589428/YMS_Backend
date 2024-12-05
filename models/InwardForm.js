@@ -78,12 +78,12 @@ const InwardFormSchema = new mongoose.Schema({
 
   // Vehicle Photos section to store URLs for each view
   vehiclePhotos: {
-    frontView: { type: String, default: null },
-    rightView: { type: String, default: null },
-    backView: { type: String, default: null },
-    leftView: { type: String, default: null },
-    engineView: { type: String, default: null },
-    meterReading: { type: String, default: null }
+    FrontView: { type: String, default: null },
+    RightView: { type: String, default: null },
+    BackView: { type: String, default: null },
+    LeftView: { type: String, default: null },
+    EngineView: { type: String, default: null },
+    MeterReading: { type: String, default: null }
   },
 
   // New Tire Photos section

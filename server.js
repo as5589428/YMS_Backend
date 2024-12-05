@@ -261,70 +261,140 @@ app.post('/yardowner/login', async (req, res) => {
 // Finance Login & Regiser 
 
 
+// Finance Login & Regiser 
+
+
 app.post('/finance/register', async (req, res) => {
-    const { empCode, name, designation, whatsapp, mobile, companyName, username, password } = req.body;
+  const { empCode, name, email, aadharnumber, designation, whatsapp, mobile, companyName, password } = req.body;
 
-    // Validate that all required fields are provided
-    if (!empCode || !name || !designation || !whatsapp || !mobile || !companyName || !username || !password) {
-        return res.status(400).json({ message: 'All fields are required.' });
-    }
+  // Validate that all required fields are provided
+  if (!empCode || !name ||!email ||!aadharnumber || !designation || !whatsapp || !mobile || !companyName || !password) {
+      return res.status(400).json({ message: 'All fields are required.' });
+  }
 
-    try {
-        // Check if the username already exists
-        const existingUser = await FinanceEmployee.findOne({ username });
-        if (existingUser) {
-            return res.status(400).json({ message: 'Username already exists' });
-        }
+  try {
+      // Check if the username already exists
+     // const existingUser = await FinanceEmployee.findOne({ username });
+      //if (existingUser) {
+        //  return res.status(400).json({ message: 'Username already exists' });
+      //}
 
-        // Check if the employee code already exists
-        const existingEmpCode = await FinanceEmployee.findOne({ empCode });
-        if (existingEmpCode) {
-            return res.status(400).json({ message: 'Employee Code already exists' });
-        }
+      // Check if the employee code already exists
+      const existingEmpCode = await FinanceEmployee.findOne({ empCode });
+      if (existingEmpCode) {
+          return res.status(400).json({ message: 'Employee Code already exists' });
+      }
 
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create a new FinanceEmployee instance
-        const financeEmployee = new FinanceEmployee({
-            empCode,
-            name,
-            designation,
-            whatsapp,
-            mobile,
-            companyName,
-            username,
-            password: hashedPassword // Save the hashed password
-        });
+      // Create a new FinanceEmployee instance
+      const financeEmployee = new FinanceEmployee({
+          empCode,
+          name,
+          email,
+          aadharnumber,
+          designation,
+          whatsapp,
+          mobile,
+          companyName,
+          //username,
+          password: hashedPassword // Save the hashed password
+      });
 
-        // Save the new finance employee to the database
-        await financeEmployee.save();
-        res.status(201).json({ message: 'Finance Employee registered successfully.' });
-    } catch (error) {
-        // Log the error for debugging purposes
-        console.error('Error registering finance employee:', error);
-        res.status(400).json({ message: 'Error registering finance employee: ' + error.message });
-    }
+      // Save the new finance employee to the database
+      await financeEmployee.save();
+      res.status(201).json({ message: 'Finance Employee registered successfully.' });
+  } catch (error) {
+      // Log the error for debugging purposes
+      console.error('Error registering finance employee:', error);
+      res.status(400).json({ message: 'Error registering finance employee: ' + error.message });
+  }
 });
 // Finance Employee Login endpoint
 app.post('/finance/login', async (req, res) => {
-    const { username, password } = req.body;
+  const { empCode, password } = req.body;
 
-    try {
-        const financeEmployee = await FinanceEmployee.findOne({ username });
-        if (!financeEmployee) return res.status(400).json({ message: 'Invalid credentials' });
+  try {
+      const financeEmployee = await FinanceEmployee.findOne({ empCode });
+      if (!financeEmployee) return res.status(400).json({ message: 'Invalid credentials' });
 
-        const isMatch = await bcrypt.compare(password, financeEmployee.password);
-        if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+      const isMatch = await bcrypt.compare(password, financeEmployee.password);
+      if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-        // Generate JWT token
-        const token = jwt.sign({ id: financeEmployee._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token });
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+      // Generate JWT token
+      const token = jwt.sign({ id: financeEmployee._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      res.json({ token });
+  } catch (error) {
+      res.status(500).json({ message: 'Server error' });
+  }
+});
+// Route to get the profile data of a finance employee by empCode
+app.get('/finance/profile/:empCode', async (req, res) => {
+const { empCode } = req.params;
+
+try {
+    const financeEmployee = await FinanceEmployee.findOne({ empCode });
+
+    if (!financeEmployee) {
+        return res.status(404).json({ message: 'Finance Employee not found' });
     }
+
+    // Send the profile data as a JSON response
+    res.status(200).json(financeEmployee);
+} catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+}
+});
+// Route to create a new gate pass
+// Updated route without photo handling
+app.post('/finance/gatepass', async (req, res) => {
+  const { name, aadharNumber, mobileNumber, vehicleNumber } = req.body;
+
+  try {
+      const newGatePass = new GatePass({
+          name,
+          aadharNumber,
+          mobileNumber,
+          vehicleNumber,
+      });
+
+      await newGatePass.save();
+      res.status(201).json({ message: 'Gate pass created successfully.', data: newGatePass });
+  } catch (error) {
+      console.error('Error creating gate pass:', error);
+      res.status(500).json({ message: 'Error creating gate pass', error: error.message });
+  }
 });
 
+
+// Route to get gate pass details by ID
+app.get('/finance/gatepass/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const gatePass = await GatePass.findById(id);
+    if (!gatePass) {
+      return res.status(404).json({ message: 'Gate pass not found' });
+    }
+
+    res.status(200).json(gatePass);
+  } catch (error) {
+    console.error('Error retrieving gate pass:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Route to get all gate passes (optional, for admin view)
+app.get('/finance/gatepass', async (req, res) => {
+  try {
+    const gatePasses = await GatePass.find();
+    res.status(200).json(gatePasses);
+  } catch (error) {
+    console.error('Error retrieving gate passes:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 
 
@@ -566,12 +636,12 @@ app.post('/api/inward', async (req, res) => {
 // });16/11/24
 
 app.post('/api/inward/:id/photos', upload.fields([
-  { name: 'frontView', maxCount: 1 },
-  { name: 'rightView', maxCount: 1 },
-  { name: 'backView', maxCount: 1 },
-  { name: 'leftView', maxCount: 1 },
-  { name: 'engineView', maxCount: 1 },
-  { name: 'meterReading', maxCount: 1 },
+  { name: 'Front View', maxCount: 1 },
+  { name: 'Right View', maxCount: 1 },
+  { name: 'Back View', maxCount: 1 },
+  { name: 'Left View', maxCount: 1 },
+  { name: 'Engine View', maxCount: 1 },
+  { name: 'Meter Reading', maxCount: 1 },
   { name: 'tyre1', maxCount: 1 },
   { name: 'tyre2', maxCount: 1 },
   { name: 'tyre3', maxCount: 1 },
@@ -656,6 +726,25 @@ app.post('/api/inward/:id/photos', upload.fields([
   }
 });
 
+// API route to fetch details by unique ID
+app.get('/inwardform/:uniqueId', async (req, res) => {
+  const { uniqueId } = req.params;
+
+  try {
+    // Search for the document by uniqueId
+    const inwardForm = await InwardForm.findOne({ uniqueId });
+
+    if (!inwardForm) {
+      return res.status(404).json({ message: 'Inward form not found' });
+    }
+
+    // If found, return the data
+    return res.status(200).json(inwardForm);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
   //MMV API
 // MMV API - Add this new dataset fetching API

@@ -12,11 +12,12 @@ const jwt = require('jsonwebtoken');
 const FinanceEmployee = require('./models/FinanceEmployee');
 const InwardForm = require('./models/InwardForm');
 const makeModelDataset = require('./models/makeModelVariant');  // Import the route
-const StateCityPincode = require('./models/StateCityPincode');
+// const StateCityPincode = require('./models/StateCityPincode');
 const cloudinary = require('cloudinary').v2;
 // const makeModelDataset = require('./models/makeModelDataset'); // Import your model
 
 const path = require('path');
+const StateCityPincode = require('./models/StateCityPincode');
 dotenv.config();
 
 const app = express();
@@ -759,8 +760,89 @@ app.get('/api/makeModelDataset', async (req, res) => {
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 });
+app.get('/api/inward/:uniqueId', async (req, res) => {
+  const { uniqueId } = req.params;
 
- 
+  console.log('Received request for uniqueId:', uniqueId);  // Log to check route access
+
+  try {
+    // Ensure uniqueId is treated as a number (since MongoDB stores it as a number)
+    const numericUniqueId = Number(uniqueId);
+
+    // Validate that the uniqueId is a valid number
+    if (isNaN(numericUniqueId)) {
+      console.log('Invalid Unique ID format: Not a valid number');
+      return res.status(400).json({ message: 'Invalid Unique ID format' });
+    }
+
+    // Query the InwardForm collection for the uniqueId
+    const inwardForm = await InwardForm.findOne({ uniqueId: numericUniqueId });
+
+    // Check if the form exists
+    if (!inwardForm) {
+      console.log('No InwardForm found for uniqueId:', numericUniqueId);
+      return res.status(404).json({ message: `No Inward form found for Unique ID: ${numericUniqueId}` });
+    }
+
+    // Return the found InwardForm
+    res.status(200).json({
+      message: 'Inward form retrieved successfully',
+      data: inwardForm,
+    });
+
+  } catch (err) {
+    console.error(`Error fetching InwardForm for Unique ID: ${uniqueId}`, err);
+
+    res.status(500).json({
+      message: 'Internal Server Error while fetching the Inward form',
+      error: err.message,
+    });
+  }
+});
+
+app.get('/api/inward', async (req, res) => {
+  try {
+    // Fetch all records from the InwardForm collection
+    const inwardForms = await InwardForm.find();
+
+    // Check if there are any records
+    if (!inwardForms || inwardForms.length === 0) {
+      console.log('No InwardForms found');
+      return res.status(404).json({ message: 'No Inward forms found' });
+    }
+
+    // Return the list of InwardForms
+    res.status(200).json({
+      message: 'Inward forms retrieved successfully',
+      data: inwardForms,
+    });
+  } catch (err) {
+    console.error('Error fetching all InwardForms', err);
+
+    res.status(500).json({
+      message: 'Internal Server Error while fetching the Inward forms',
+      error: err.message,
+    });
+  }
+});
+
+// Endpoint to Fetch All Records
+app.get('/api/statecity-pincode', async (req, res) => {
+  try {
+    // Fetch all records from the collection
+    const data = await StateCityPincode.find({});
+    res.status(200).json({
+      message: 'Data fetched successfully',
+      data: data,
+    });
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    res.status(500).json({
+      message: 'Server error',
+      error: error.message,
+    });
+  }
+});
 
 // Start the server
 app.listen(PORT, () => {

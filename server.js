@@ -397,7 +397,49 @@ app.get('/finance/gatepass', async (req, res) => {
   }
 });
 
+//Finance Stockmanagement 
 
+app.post('/finance/stock', async (req, res) => {
+  const { financecompanyname } = req.body; // Extracts financecompanyname from the request body
+
+  if (!financecompanyname) {
+    return res.status(400).json({ message: 'Finance company name is required' });
+  }
+
+  try {
+    // Case-insensitive query to find documents where financecompanyname matches
+    const vehicles = await InwardForm.find({
+      financecompanyname: { $regex: new RegExp('^' + financecompanyname + '$', 'i') }
+    });
+
+    if (!vehicles || vehicles.length === 0) {
+      return res.status(404).json({ message: 'No vehicles found for the given company' });
+    }
+
+    // Process data (e.g., count, group by segments, etc.)
+    const totalVehicles = vehicles.length;
+
+    const segments = vehicles.reduce((acc, vehicle) => {
+      acc[vehicle.segment] = (acc[vehicle.segment] || 0) + 1;
+      return acc;
+    }, {});
+
+    const yards = vehicles.reduce((acc, vehicle) => {
+      if (!acc[vehicle.yard]) acc[vehicle.yard] = {};
+      acc[vehicle.yard][vehicle.segment] = (acc[vehicle.yard][vehicle.segment] || 0) + 1;
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      totalVehicles,
+      segments,
+      yards,
+    });
+  } catch (error) {
+    console.error('Error fetching vehicle data:', error);
+    res.status(500).json({ message: 'Error fetching vehicle data' });
+  }
+});
 
 
 
@@ -496,13 +538,14 @@ app.post('/api/inward', async (req, res) => {
     const uniqueId = await generateUniqueID(); // Ensure generateUniqueID() is a valid async function
 
     // Validate required fields before proceeding
-    if (!req.body.clientName || !req.body.agreementNumber) {
+    if (!req.body.clientName || !req.body.agreementNumberc ) {
       return res.status(400).json({ message: 'Client Name and Agreement Number are required' });
     }
 
     // Create the inward form data
     const inwardData = new InwardForm({
       uniqueId, // Add the generated unique ID here
+      
       clientName: req.body.clientName,
       agreementNumber: req.body.agreementNumber,
       make: req.body.make,

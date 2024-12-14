@@ -538,7 +538,7 @@ app.post('/api/inward', async (req, res) => {
     const uniqueId = await generateUniqueID(); // Ensure generateUniqueID() is a valid async function
 
     // Validate required fields before proceeding
-    if (!req.body.clientName || !req.body.agreementNumberc ) {
+    if (!req.body.clientName || !req.body.agreementNumber ) {
       return res.status(400).json({ message: 'Client Name and Agreement Number are required' });
     }
 

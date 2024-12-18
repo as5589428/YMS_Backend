@@ -680,12 +680,12 @@ app.post('/api/inward', async (req, res) => {
 // });16/11/24
 
 app.post('/api/inward/:id/photos', upload.fields([
-  { name: 'Front View', maxCount: 1 },
-  { name: 'Right View', maxCount: 1 },
-  { name: 'Back View', maxCount: 1 },
-  { name: 'Left View', maxCount: 1 },
-  { name: 'Engine View', maxCount: 1 },
-  { name: 'Meter Reading', maxCount: 1 },
+  { name: 'frontView', maxCount: 1 },
+  { name: 'rightView', maxCount: 1 },
+  { name: 'backView', maxCount: 1 },
+  { name: 'leftView', maxCount: 1 },
+  { name: 'engineView', maxCount: 1 },
+  { name: 'meterReading', maxCount: 1 },
   { name: 'tyre1', maxCount: 1 },
   { name: 'tyre2', maxCount: 1 },
   { name: 'tyre3', maxCount: 1 },
@@ -700,7 +700,8 @@ app.post('/api/inward/:id/photos', upload.fields([
   try {
     // Check what files were received
     const uniqueId = req.params.id; // Get uniqueId from the URL parameter
-
+ 
+    
     // Validate the uniqueId format (you can add a custom validation for your specific format if needed)
     if (!uniqueId) {
      
@@ -733,7 +734,8 @@ app.post('/api/inward/:id/photos', upload.fields([
   
       });
     };
-
+    console.log('Files received:', req.files);
+    console.log('Uploaded Photos:', uploadedPhotos);
     // Create an array of promises for each file to be uploaded
     const uploadPromises = Object.keys(req.files).map(fieldName => {
       const file = req.files[fieldName][0];
@@ -752,6 +754,7 @@ app.post('/api/inward/:id/photos', upload.fields([
     inwardForm.vehiclePhotos.leftView = uploadedPhotos.leftView || null;
     inwardForm.vehiclePhotos.engineView = uploadedPhotos.engineView || null;
     inwardForm.vehiclePhotos.meterReading = uploadedPhotos.meterReading || null;
+    
 
     // Update tire photos based on the number of fields present in the request
     inwardForm.tyrePhotos = {};

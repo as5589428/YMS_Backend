@@ -173,19 +173,19 @@ router.post('/yardowner/register', upload.single('photo'), async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Upload photo to Cloudinary
-      let photoUrl = null;
-      if (req.file) {
-          const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
-              folder: `yard-owner-profile/${yardname}`,
-              public_id: `photo_${Date.now()}`,
-              resource_type: 'image',
-          });
+      // let photoUrl = null;
+      // if (req.file) {
+      //     const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+      //         folder: `yard-owner-profile/${yardname}`,
+      //         public_id: `photo_${Date.now()}`,
+      //         resource_type: 'image',
+      //     });
 
-          photoUrl = cloudinaryResult.secure_url;
+      //     photoUrl = cloudinaryResult.secure_url;
 
-          // Remove the file from the local uploads folder after upload
-          fs.unlinkSync(req.file.path);
-      }
+      //     // Remove the file from the local uploads folder after upload
+      //     fs.unlinkSync(req.file.path);
+      // }
 
       // Create a new YardOwner
       const yardOwner = new YardOwner({

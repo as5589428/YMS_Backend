@@ -14,14 +14,12 @@ const InwardForm = require('./models/InwardForm');
 const makeModelDataset = require('./models/makeModelVariant');  // Import the route
 // const StateCityPincode = require('./models/StateCityPincode');
 const cloudinary = require('cloudinary').v2;
-const yardRoutes = require('./routes/yardRoutes');
 // const makeModelDataset = require('./models/makeModelDataset'); // Import your model
 
 const path = require('path');
 const StateCityPincode = require('./models/StateCityPincode');
-const Rate_Chart = require('./models/Rate_Chart');
 dotenv.config();
-const router = express.Router();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -139,91 +137,46 @@ app.post('/login', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
 // YardOwner Login endpoint
-// Register YardOwner API
-// Register API 
-router.post('/yardowner/register', upload.single('photo'), async (req, res) => {
-  const {
-      yardname,
-      contact_person,
-      state,
-      district,
-      city,
-      pincode,
-      phone,
-      email,
-      address,
-      password,
-  } = req.body;
+app.post('/yardowner/register', async (req, res) => {
+    const { yardname, contact_person, state, district, city, pincode, phone, email, address, password } = req.body;
 
-  try {
-      // Check if yardname or email already exists
-      const existingYardOwner = await YardOwner.findOne({ yardname });
-      const existingEmail = await YardOwner.findOne({ email });
+    // Check if yardname or email already exists
+    const existingYardOwner = await YardOwner.findOne({ yardname });
+    const existingEmail = await YardOwner.findOne({ email });
 
-      if (existingYardOwner) {
-          return res.status(400).json({ message: 'Yardname already exists' });
-      }
+    if (existingYardOwner) {
+        return res.status(400).json({ message: 'Yardname already exists' });
+    }
 
-      if (existingEmail) {
-          return res.status(400).json({ message: 'Email already exists' });
-      }
+    if (existingEmail) {
+        return res.status(400).json({ message: 'Email already exists' });
+    }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Upload photo to Cloudinary
-      let photoUrl = null;
-      if (req.file) {
-          const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
-              folder: `yard-owner-profile/${yardname}`,
-              public_id: `photo_${Date.now()}`,
-              resource_type: 'image',
-          });
+    // Create a new YardOwner
+    const yardOwner = new YardOwner({
+        yardname,
+        contact_person,
+        state,
+        district,
+        city,
+        pincode,
+        phone,
+        email,
+        address,
+        password: hashedPassword,
+    });
 
-          photoUrl = cloudinaryResult.secure_url;
-
-          // Remove the file from the local uploads folder after upload
-          fs.unlinkSync(req.file.path);
-      }
-
-      // Create a new YardOwner
-      const yardOwner = new YardOwner({
-          yardname,
-          contact_person,
-          state,
-          district,
-          city,
-          pincode,
-          phone,
-          email,
-          address,
-          password: hashedPassword,
-          photo: photoUrl, // Store the Cloudinary URL in the database
-      });
-
-      await yardOwner.save();
-
-      res.status(201).json({
-          success: true,
-          message: 'YardOwner registered successfully',
-          data: {
-              yardname,
-              contact_person,
-              state,
-              district,
-              city,
-              pincode,
-              phone,
-              email,
-              address,
-              photo: photoUrl,
-          },
-      });
-  } catch (error) {
-      console.error('Error during registration:', error.message);
-      res.status(500).json({ success: false, message: 'Error registering YardOwner', error: error.message });
-  }
+    try {
+        await yardOwner.save();
+        res.status(201).json({ message: 'YardOwner registered successfully' });
+    } catch (error) {
+        res.status(400).json({ message: 'Error registering YardOwner: ' + error.message });
+    }
 });
 
 // YardOwner Login Endpoint
@@ -456,7 +409,6 @@ app.post('/api/inward', async (req, res) => {
       make: req.body.make,
       model: req.body.model,
       variant: req.body.variant,
-      yom:req.body.yom,
       refNo: req.body.refNo,
       segment: req.body.segment,
       loanNo: req.body.loanNo,
@@ -541,41 +493,21 @@ app.post('/api/inward/:id/photos', upload.fields([
 
     const uploadedPhotos = {}; // Object to store the Cloudinary URLs for each view
 
-    const fs = require('fs');
-    const cloudinary = require('cloudinary').v2;
-    
-    const uploadToCloudinary = (filePath, fieldName, folderType, yardname = null) => {
-      // Determine the folder based on the type
-      let folderPath;
-      if (folderType === 'vehicle_photos') {
-        const uniqueId = Date.now(); // Generate a unique ID for vehicle photos
-        folderPath = `vehicle_photos/${uniqueId}`;
-      } else if (folderType === 'yard-owner-profile') {
-        if (!yardname) {
-          throw new Error('Yardname is required for yard-owner-profile uploads');
-        }
-        folderPath = `yard-owner-profile/${yardname}`;
-      } else {
-        throw new Error('Invalid folder type specified');
-      }
-    
-      // Upload to Cloudinary
+     // Helper function to upload a file to Cloudinary with uniqueId in the folder name
+     const uploadToCloudinary = (filePath, fieldName) => {
       return cloudinary.uploader.upload(filePath, {
-        folder: folderPath,
-        public_id: `${Date.now()}_${fieldName}`, // Use a timestamp and fieldName for unique public IDs
-        resource_type: 'image',
+        folder: `vehicle_photos/${uniqueId}`, // Use uniqueId as part of the folder path
+        public_id: fieldName // Use the field name as the public ID
       })
-        .then(result => {
-          const uploadedUrl = result.secure_url; // Save the secure URL
-          fs.unlinkSync(filePath); // Remove the temporary file
-          return uploadedUrl; // Return the URL for further use
-        })
-        .catch(error => {
-          console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
-          throw error; // Ensure the error propagates
-        });
+      .then(result => {
+        uploadedPhotos[fieldName] = result.secure_url; // Save the secure URL
+        fs.unlinkSync(filePath); // Remove the temporary file
+      })
+      .catch(error => {
+        console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
+        throw error; // Ensure the error propagates
+      });
     };
-    
 
     // Step 3: Upload files to Cloudinary
     console.log('Files received:', req.files);
@@ -618,40 +550,6 @@ app.post('/api/inward/:id/photos', upload.fields([
       error: err.message
     });
   }
-});
-// OUTWARD API - ABDUL
-
-// Outward API
-// Outward API Route
-
-// Defining a route to fetch inward data
-app.get('/outward/:uniqueId', async (req, res) => {
-  try {
-    const uniqueId = Number(req.params.uniqueId);
-    
-    // Validate uniqueId is a number
-    if (isNaN(uniqueId)) {
-      return res.status(400).json({ message: 'Invalid Unique ID format' });
-    }
-
-    const inwardData = await InwardForm.findOne({ uniqueId });
-    
-    if (!inwardData) {
-      return res.status(404).json({ message: 'Inward form not found' });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: inwardData
-    });
-  } catch (error) {
-    console.error('Error fetching inward data:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Error fetching inward data',
-      error: error.message 
-    });
-  }
 });
   //MMV API
 // MMV API - Add this new dataset fetching API
@@ -750,168 +648,6 @@ app.get('/api/statecity-pincode', async (req, res) => {
   }
 });
 
-
-app.use('/api', yardRoutes);
-
-
-// Rate & Payment API
-app.get('/api/rates', async (req, res) => {
-  try {
-    const rates = await Rate_Chart.find(); // Fetch all rate charts
-    res.status(200).json(rates); // Respond with the fetched data
-  } catch (error) {
-    console.error('Error fetching rate charts:', error); // Log the error
-    res.status(500).json({ message: 'Error fetching rate charts', error });
-  }
-});
-// POST /api/rates: Add a new rate chart
-app.post('/api/rates', async (req, res) => {
-  try {
-      const { ClientSegment, Rate } = req.body;
-
-      // Validate request data
-      if (!ClientSegment || !Rate) {
-          return res.status(400).json({ message: 'ClientSegment and Rate are required.' });
-      }
-
-      // Create a new Rate_Chart document
-      const newRateChart = new Rate_Chart({
-          ClientSegment,
-          Rate,
-      });
-
-
-      // Save to the database
-      const savedRateChart = await newRateChart.save();
-
-      res.status(201).json({
-          message: 'Rate chart added successfully!',
-          data: savedRateChart,
-      });
-  } catch (error) {
-      console.error('Error adding rate chart:', error);
-      res.status(500).json({ message: 'Error adding rate chart', error });
-  }
-});
-      // DELETE /api/rates/:ClientSegment: Delete a rate chart by ClientSegment name
-      app.delete('/api/rates/:ClientSegment', async (req, res) => {
-        try {
-            const { ClientSegment } = req.params;
-      
-            // Check if ClientSegment exists in the database
-            const deletedRateChart = await Rate_Chart.findOneAndDelete({ ClientSegment });
-      
-            if (!deletedRateChart) {
-                return res.status(404).json({
-                    message: `Rate chart with ClientSegment '${ClientSegment}' not found.`,
-                });
-            }
-      
-            res.status(200).json({
-                message: `Rate chart with ClientSegment '${ClientSegment}' deleted successfully!`,
-                data: deletedRateChart,
-            });
-        } catch (error) {
-            console.error('Error deleting rate chart:', error);
-            res.status(500).json({ message: 'Error deleting rate chart', error });
-        }
-      });
-
-      // PUT /api/rates/:id - Update a rate chart by ID
-app.put('/api/rates/:id', async (req, res) => {
-  const { id } = req.params; // Get the ID from the route parameter
-  const { ClientSegment, Rate } = req.body; // Get the fields to update from the request body
-
-  try {
-      // Validate request body
-      if (!ClientSegment && !Rate) {
-          return res.status(400).json({ message: 'Please provide at least one field to update (ClientSegment or Rate).' });
-      }
-
-      // Find and update the rate chart
-      const updatedRateChart = await Rate_Chart.findByIdAndUpdate(
-          id, // Find the document by ID
-          { ...(ClientSegment && { ClientSegment }), ...(Rate && { Rate }) }, // Update only the provided fields
-          { new: true, runValidators: true } // Return the updated document and run validation
-      );
-
-      // If no document is found, return 404
-      if (!updatedRateChart) {
-          return res.status(404).json({ message: `Rate chart with ID '${id}' not found.` });
-      }
-
-      // Return the updated document
-      res.status(200).json({
-          message: `Rate chart with ID '${id}' updated successfully!`,
-          data: updatedRateChart,
-      });
-  } catch (error) {
-      console.error('Error updating rate chart:', error);
-      res.status(500).json({ message: 'Error updating rate chart', error });
-  }
-});
-// POST /api/calculate-charges
-app.post('/api/calculate-charges', async (req, res) => {
-  try {
-      const { car_id, yard_id } = req.body;
-
-      if (!car_id || !yard_id) {
-          return res.status(400).json({ error: 'car_id and yard_id are required.' });
-      }
-
-      // Fetch entry details
-      const carEntry = await CarEntry.findOne({
-          where: { car_id, yard_id },
-      });
-
-      if (!carEntry) {
-          return res.status(404).json({ error: 'Car entry not found.' });
-      }
-
-      // Fetch yard charges
-      const yardCharge = await YardCharge.findOne({
-          where: { yard_id },
-      });
-
-      if (!yardCharge) {
-          return res.status(404).json({ error: 'Yard charges not found.' });
-      }
-
-      // Calculate duration
-      const entryDate = moment(carEntry.entry_date);
-      const currentDate = moment();
-      const durationDays = currentDate.diff(entryDate, 'days');
-
-      // Determine rate and duration type
-      let totalCharge, durationType;
-
-      if (durationDays <= 30) {
-          totalCharge = durationDays * yardCharge.daily_rate;
-          durationType = 'daily';
-      } else if (durationDays <= 365) {
-          const months = Math.ceil(durationDays / 30);
-          totalCharge = months * yardCharge.monthly_rate;
-          durationType = 'monthly';
-      } else {
-          const years = Math.ceil(durationDays / 365);
-          totalCharge = years * yardCharge.yearly_rate;
-          durationType = 'yearly';
-      }
-
-      // Respond with calculated charges
-      res.json({
-          car_id,
-          yard_id,
-          entry_date: carEntry.entry_date,
-          duration_type: durationType,
-          duration_value: durationDays,
-          total_charge: totalCharge,
-      });
-  } catch (error) {
-      console.error('Error calculating charges:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

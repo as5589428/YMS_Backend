@@ -44,7 +44,6 @@ const YardOwnerSchema = new Schema({
     type: String,
     required: true,
   },
-  photo: { type: String },
 });
 
 module.exports = mongoose.model('YardOwner', YardOwnerSchema);

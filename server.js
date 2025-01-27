@@ -1,6 +1,7 @@
 // server.js
 const express = require('express');
 const fs = require('fs');
+const moment = require('moment');
 
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -57,6 +58,43 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage: storage });
+
+const uploadedPhotos = {}; // Object to store the Cloudinary URLs for each view
+
+// const fs = require('fs');
+// const cloudinary = require('cloudinary').v2;
+
+// const uploadToCloudinary = (filePath, fieldName, folderType, yardname = null) => {
+//   // Determine the folder based on the type
+//   let folderPath;
+//   if (folderType === 'vehicle_photos') {
+//     const uniqueId = Date.now(); // Generate a unique ID for vehicle photos
+//     folderPath = `vehicle_photos/${uniqueId}`;
+//   } else if (folderType === 'yard-owner-profile') {
+//     if (!yardname) {
+//       throw new Error('Yardname is required for yard-owner-profile uploads');
+//     }
+//     folderPath = `yard-owner-profile/${yardname}`;
+//   } else {
+//     throw new Error('Invalid folder type specified');
+//   }
+
+//   // Upload to Cloudinary
+//   return cloudinary.uploader.upload(filePath, {
+//     folder: folderPath,
+//     public_id: `${Date.now()}_${fieldName}`, // Use a timestamp and fieldName for unique public IDs
+//     resource_type: 'image',
+//   })
+//     .then(result => {
+//       const uploadedUrl = result.secure_url; // Save the secure URL
+//       fs.unlinkSync(filePath); // Remove the temporary file
+//       return uploadedUrl; // Return the URL for further use
+//     })
+//     .catch(error => {
+//       console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
+//       throw error; // Ensure the error propagates
+//     });
+// };
 
 // const upload = multer({
 //   storage: storage,
@@ -173,19 +211,19 @@ router.post('/yardowner/register', upload.single('photo'), async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Upload photo to Cloudinary
-      // let photoUrl = null;
-      // if (req.file) {
-      //     const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
-      //         folder: `yard-owner-profile/${yardname}`,
-      //         public_id: `photo_${Date.now()}`,
-      //         resource_type: 'image',
-      //     });
+      let photoUrl = null;
+      if (req.file) {
+          const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+              folder: `yard-owner-profile/${yardname}`,
+              public_id: `photo_${Date.now()}`,
+              resource_type: 'image',
+          });
 
-      //     photoUrl = cloudinaryResult.secure_url;
+          photoUrl = cloudinaryResult.secure_url;
 
-      //     // Remove the file from the local uploads folder after upload
-      //     fs.unlinkSync(req.file.path);
-      // }
+          // Remove the file from the local uploads folder after upload
+          fs.unlinkSync(req.file.path);
+      }
 
       // Create a new YardOwner
       const yardOwner = new YardOwner({
@@ -437,26 +475,99 @@ app.post('/finance/stock', async (req, res) => {
 
 
 
-app.post('/api/inward', async (req, res) => {
-  try {
-    // Generate a unique 4-5 digit ID
-    const uniqueId = await generateUniqueID(); // Ensure generateUniqueID() is a valid async function
+// app.post('/api/inward', async (req, res) => {
+//   try {
+//     // Generate a unique 4-5 digit ID
+//     const uniqueId = await generateUniqueID(); // Ensure generateUniqueID() is a valid async function
 
-    // Validate required fields before proceeding
-    if (!req.body.clientName || !req.body.agreementNumber ) {
+//     // Validate required fields before proceeding
+//     if (!req.body.clientName || !req.body.agreementNumber ) {
+//       return res.status(400).json({ message: 'Client Name and Agreement Number are required' });
+//     }
+
+//     // Create the inward form data
+//     const inwardData = new InwardForm({
+//       uniqueId, // Add the generated unique ID here
+      
+//       clientName: req.body.clientName,
+//       agreementNumber: req.body.agreementNumber,
+//       make: req.body.make,
+//       model: req.body.model,
+//       variant: req.body.variant,
+//       yom:req.body.yom,
+//       refNo: req.body.refNo,
+//       segment: req.body.segment,
+//       loanNo: req.body.loanNo,
+//       fuelType: req.body.fuelType,
+//       odometerReading: req.body.odometerReading,
+//       yard: req.body.yard,
+//       inwardDateTime: req.body.inwardDateTime,
+//       geoLocation: req.body.geoLocation,
+
+//       // Safely access nested vehicle details
+//       vehicleDetails: {
+//         customerName: req.body.vehicleDetails?.customerName || '',
+//         engineNumber: req.body.vehicleDetails?.engineNumber || '',
+//         chassisNumber: req.body.vehicleDetails?.chassisNumber || '',
+//         color: req.body.vehicleDetails?.color || '',
+//         vehicleClass: req.body.vehicleDetails?.vehicleClass || '',
+//         vehicleCondition: req.body.vehicleDetails?.vehicleCondition || '',
+//         keyLocation: req.body.vehicleDetails?.keyLocation || '',
+//         transmission: req.body.vehicleDetails?.transmission || '',
+//         remarks: req.body.vehicleDetails?.remarks || '',
+//       },
+
+//       // Assuming checklist is an array of objects, make sure it is properly handled
+//       checklist: Array.isArray(req.body.checklist) ? req.body.checklist : [],
+//     });
+
+//     // Save the inward form data to the database
+//     const savedInward = await inwardData.save();
+//     res.status(201).json({
+//       message: 'Inward form data saved successfully',
+//       data: savedInward,
+//     });
+//   } catch (err) {
+//     // Improved error logging for better debugging
+//     console.error('Error saving inward form data:', err);
+//     res.status(400).json({
+//       message: 'Error saving inward form data',
+//       error: err.message,
+//     });
+//   }
+// });
+
+// POST endpoint
+
+// POST API to handle image upload and form data submission
+app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
+  try {
+    // Generate a unique ID
+    const uniqueId = await generateUniqueID();
+
+    // Validate required fields
+    if (!req.body.clientName || !req.body.agreementNumber) {
       return res.status(400).json({ message: 'Client Name and Agreement Number are required' });
     }
 
+    // Upload the `vahan_image` to Cloudinary
+    let vahanImageUrl = null;
+    if (req.file) {
+      // Upload the image to Cloudinary and save the URL
+      vahanImageUrl = await uploadToCloudinary(req.file.path, 'vahan-image'); // Specify the folder name here
+    }
+
+    console.log('Uploaded File:', req.file);
+
     // Create the inward form data
     const inwardData = new InwardForm({
-      uniqueId, // Add the generated unique ID here
-      
+      uniqueId,
       clientName: req.body.clientName,
       agreementNumber: req.body.agreementNumber,
       make: req.body.make,
       model: req.body.model,
       variant: req.body.variant,
-      yom:req.body.yom,
+      yom: req.body.yom,
       refNo: req.body.refNo,
       segment: req.body.segment,
       loanNo: req.body.loanNo,
@@ -465,8 +576,6 @@ app.post('/api/inward', async (req, res) => {
       yard: req.body.yard,
       inwardDateTime: req.body.inwardDateTime,
       geoLocation: req.body.geoLocation,
-
-      // Safely access nested vehicle details
       vehicleDetails: {
         customerName: req.body.vehicleDetails?.customerName || '',
         engineNumber: req.body.vehicleDetails?.engineNumber || '',
@@ -478,9 +587,8 @@ app.post('/api/inward', async (req, res) => {
         transmission: req.body.vehicleDetails?.transmission || '',
         remarks: req.body.vehicleDetails?.remarks || '',
       },
-
-      // Assuming checklist is an array of objects, make sure it is properly handled
       checklist: Array.isArray(req.body.checklist) ? req.body.checklist : [],
+      vahanImage: vahanImageUrl, // Save the Cloudinary URL
     });
 
     // Save the inward form data to the database
@@ -490,16 +598,13 @@ app.post('/api/inward', async (req, res) => {
       data: savedInward,
     });
   } catch (err) {
-    // Improved error logging for better debugging
-    console.error('Error saving inward form data:', err);
-    res.status(400).json({
-      message: 'Error saving inward form data',
+    console.error('Error processing inward form data:', err);
+    res.status(500).json({
+      message: 'Error processing inward form data',
       error: err.message,
     });
   }
 });
-
-
 
 app.post('/api/inward/:id/photos', upload.fields([
   { name: 'frontView', maxCount: 1 },
@@ -539,44 +644,56 @@ app.post('/api/inward/:id/photos', upload.fields([
 
     }
 
-    const uploadedPhotos = {}; // Object to store the Cloudinary URLs for each view
-
-    const fs = require('fs');
-    const cloudinary = require('cloudinary').v2;
+ 
     
-    const uploadToCloudinary = (filePath, fieldName, folderType, yardname = null) => {
-      // Determine the folder based on the type
-      let folderPath;
-      if (folderType === 'vehicle_photos') {
-        const uniqueId = Date.now(); // Generate a unique ID for vehicle photos
-        folderPath = `vehicle_photos/${uniqueId}`;
-      } else if (folderType === 'yard-owner-profile') {
-        if (!yardname) {
-          throw new Error('Yardname is required for yard-owner-profile uploads');
+    const uploadToCloudinary = (filePath, fieldName, folderType = 'vehicle_photos', yardname = null) => {
+      try {
+        // Validate inputs
+        if (!folderType) {
+          throw new Error('Folder type is required and cannot be undefined.');
         }
-        folderPath = `yard-owner-profile/${yardname}`;
-      } else {
-        throw new Error('Invalid folder type specified');
-      }
     
-      // Upload to Cloudinary
-      return cloudinary.uploader.upload(filePath, {
-        folder: folderPath,
-        public_id: `${Date.now()}_${fieldName}`, // Use a timestamp and fieldName for unique public IDs
-        resource_type: 'image',
-      })
-        .then(result => {
-          const uploadedUrl = result.secure_url; // Save the secure URL
-          fs.unlinkSync(filePath); // Remove the temporary file
-          return uploadedUrl; // Return the URL for further use
+        // Determine the folder path based on the type
+        let folderPath;
+        switch (folderType) {
+          case 'vehicle_photos':
+            const uniqueId = Date.now();
+            folderPath = `vehicle_photos/${uniqueId}`;
+            break;
+    
+          case 'yard-owner-profile':
+            if (!yardname) {
+              throw new Error('Yardname is required for yard-owner-profile uploads');
+            }
+            folderPath = `yard-owner-profile/${yardname}`;
+            break;
+    
+          default:
+            throw new Error(`Invalid folder type specified: ${folderType}`);
+        }
+    
+        // Upload to Cloudinary
+        return cloudinary.uploader.upload(filePath, {
+          folder: folderPath,
+          public_id: `${Date.now()}_${fieldName}`,
+          resource_type: 'image',
         })
-        .catch(error => {
-          console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
-          throw error; // Ensure the error propagates
-        });
+          .then(result => {
+            const uploadedUrl = result.secure_url;
+            fs.unlinkSync(filePath); // Remove local file
+            return uploadedUrl;
+          })
+          .catch(error => {
+            console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
+            throw new Error(`Failed to upload ${fieldName}. Please try again.`);
+          });
+    
+      } catch (error) {
+        console.error('Error in uploadToCloudinary:', error.message);
+        throw error;
+      }
     };
     
-
     // Step 3: Upload files to Cloudinary
     console.log('Files received:', req.files);
     const uploadPromises = Object.keys(req.files).map(fieldName => {
@@ -853,65 +970,111 @@ app.put('/api/rates/:id', async (req, res) => {
 // POST /api/calculate-charges
 app.post('/api/calculate-charges', async (req, res) => {
   try {
-      const { car_id, yard_id } = req.body;
+    const { uniqueId, Client_Segment } = req.body;
 
-      if (!car_id || !yard_id) {
-          return res.status(400).json({ error: 'car_id and yard_id are required.' });
-      }
+    // Validate required inputs
+    if (!uniqueId || typeof uniqueId !== 'string' || uniqueId.trim() === "") {
+      return res.status(400).json({ error: "uniqueId is required and must be a non-empty string." });
+    }
+    if (!Client_Segment || typeof Client_Segment !== 'string' || Client_Segment.trim() === "") {
+      return res.status(400).json({ error: "Client_Segment is required and must be a non-empty string." });
+    }
 
-      // Fetch entry details
-      const carEntry = await CarEntry.findOne({
-          where: { car_id, yard_id },
-      });
+    // Fetch car entry using uniqueId
+    const carEntry = await InwardForm.findOne({ uniqueId: uniqueId.trim() });
 
-      if (!carEntry) {
-          return res.status(404).json({ error: 'Car entry not found.' });
-      }
+    if (!carEntry) {
+      return res.status(404).json({ error: "Car entry not found for the provided uniqueId." });
+    }
 
-      // Fetch yard charges
-      const yardCharge = await YardCharge.findOne({
-          where: { yard_id },
-      });
+    // Extract details from carEntry
+    const { createdAt, clientName, agreementNumber } = carEntry;
 
-      if (!yardCharge) {
-          return res.status(404).json({ error: 'Yard charges not found.' });
-      }
+    // Validate fetched car entry details
+    if (!createdAt || !clientName || !agreementNumber) {
+      return res.status(400).json({ error: "Incomplete data in car entry. Ensure createdAt, clientName, and agreementNumber exist." });
+    }
 
-      // Calculate duration
-      const entryDate = moment(carEntry.entry_date);
-      const currentDate = moment();
-      const durationDays = currentDate.diff(entryDate, 'days');
+    // Log car entry details for debugging
+    console.log("Car Entry Details:", { createdAt, clientName, agreementNumber });
 
-      // Determine rate and duration type
-      let totalCharge, durationType;
+    // Calculate duration in days based on createdAt
+    const entryDate = moment(createdAt);
+    const currentDate = moment();
 
-      if (durationDays <= 30) {
-          totalCharge = durationDays * yardCharge.daily_rate;
-          durationType = 'daily';
-      } else if (durationDays <= 365) {
-          const months = Math.ceil(durationDays / 30);
-          totalCharge = months * yardCharge.monthly_rate;
-          durationType = 'monthly';
-      } else {
-          const years = Math.ceil(durationDays / 365);
-          totalCharge = years * yardCharge.yearly_rate;
-          durationType = 'yearly';
-      }
+    if (!entryDate.isValid()) {
+      return res.status(400).json({ error: "Invalid date format in car entry." });
+    }
 
-      // Respond with calculated charges
-      res.json({
-          car_id,
-          yard_id,
-          entry_date: carEntry.entry_date,
-          duration_type: durationType,
-          duration_value: durationDays,
-          total_charge: totalCharge,
-      });
+    const durationDays = currentDate.diff(entryDate, 'days');
+
+    // Log the received Client_Segment value
+    console.log("Received Client_Segment:", Client_Segment.trim());
+
+    // Query Rate_Chart for the provided Client_Segment
+    const rateChart = await Rate_Chart.findOne({
+      Client_Segment: { $regex: new RegExp(`^${Client_Segment.trim()}$`, 'i') }
+    });
+    
+    console.log("Querying Rate_Chart with Client_Segment:", Client_Segment.trim());
+    console.log("Rate Chart Found:", rateChart);
+
+    // Handle case where no matching rate chart is found
+    if (!rateChart) {
+      return res.status(404).json({ error: `Rate not found for Client_Segment: ${Client_Segment.trim()}` });
+    }
+
+    const { Rate } = rateChart;
+
+    // Convert Rate to a number
+    const numericRate = parseFloat(Rate);
+
+    // Validate Rate
+    if (isNaN(numericRate) || numericRate <= 0) {
+      return res.status(400).json({ error: `Invalid rate found for Client_Segment: ${Client_Segment.trim()}` });
+    }
+
+    // Determine duration type and calculate total charge
+    let totalCharge, durationType;
+
+    if (durationDays <= 30) {
+      totalCharge = durationDays * numericRate;
+      durationType = 'daily';
+    } else if (durationDays <= 365) {
+      const months = Math.ceil(durationDays / 30);
+      totalCharge = months * numericRate;
+      durationType = 'monthly';
+    } else {
+      const years = Math.ceil(durationDays / 365);
+      totalCharge = years * numericRate;
+      durationType = 'yearly';
+    }
+
+    // Validate total charge
+    if (totalCharge === null || totalCharge === undefined) {
+      return res.status(400).json({ error: "Unable to calculate the total charge. Please check your inputs." });
+    }
+
+    // Respond with calculated charges
+    return res.json({
+      car_id: carEntry.uniqueId,
+      created_at: createdAt,
+      clientName,
+      agreementNumber,
+      Client_Segment: Client_Segment.trim(),
+      duration_type: durationType,
+      duration_value: durationDays,
+      total_charge: totalCharge,
+    });
   } catch (error) {
-      console.error('Error calculating charges:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error calculating charges:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+
+
+
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

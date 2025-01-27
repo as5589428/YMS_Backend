@@ -39,8 +39,9 @@ const InwardFormSchema = new mongoose.Schema({
     keyLocation: { type: String, required: true },
     transmission: { type: String, required: true },
     remarks: { type: String }
-  },
 
+  },
+   vahanImage: String,
   // Checklist section as an array of ChecklistItem
   checklist: {
     type: [ChecklistItemSchema],
@@ -74,8 +75,9 @@ const InwardFormSchema = new mongoose.Schema({
       { label: "Cultivator", yes: false, no: false },
       { label: "Tyre", yes: false, no: false }
     ]
+ 
   },
-
+  
 
   vehiclePhotos: {
     frontView: { type: String, default: null },

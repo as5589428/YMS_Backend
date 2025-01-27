@@ -59,7 +59,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-const uploadedPhotos = {}; // Object to store the Cloudinary URLs for each view
+// Object to store the Cloudinary URLs for each view
 
 // const fs = require('fs');
 // const cloudinary = require('cloudinary').v2;
@@ -606,6 +606,147 @@ app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
   }
 });
 
+// app.post('/api/inward/:id/photos', upload.fields([
+//   { name: 'frontView', maxCount: 1 },
+//   { name: 'rightView', maxCount: 1 },
+//   { name: 'backView', maxCount: 1 },
+//   { name: 'leftView', maxCount: 1 },
+//   { name: 'engineView', maxCount: 1 },
+//   { name: 'meterReading', maxCount: 1 },
+//   { name: 'tyre1', maxCount: 1 },
+//   { name: 'tyre2', maxCount: 1 },
+//   { name: 'tyre3', maxCount: 1 },
+//   { name: 'tyre4', maxCount: 1 },
+//   { name: 'tyre5', maxCount: 1 },
+//   { name: 'tyre6', maxCount: 1 },
+//   { name: 'tyre7', maxCount: 1 },
+//   { name: 'tyre8', maxCount: 1 },
+//   { name: 'tyre9', maxCount: 1 },
+//   { name: 'tyre10', maxCount: 1 }
+// ]), async (req, res) => {
+//   try {
+//     // Check what files were received
+//     const uniqueId = req.params.id; // Get uniqueId from the URL parameter
+ 
+    
+//     // Validate the uniqueId format (you can add a custom validation for your specific format if needed)
+//     if (!uniqueId) {
+     
+//       return res.status(400).json({ message: 'Unique ID is required' });
+ 
+//     }
+
+//     // Find the inward form by uniqueId
+//     const inwardForm = await InwardForm.findOne({ uniqueId: uniqueId });
+
+//     if (!inwardForm) {
+//       return res.status(404).json({ message: 'Inward form not found or incomplete. Please make sure the form is created correctly.' });
+
+//     }
+
+ 
+    
+//     const uploadToCloudinary = (filePath, fieldName, folderType = 'vehicle_photos', yardname = null) => {
+//       try {
+//         // Validate inputs
+//         if (!folderType) {
+//           throw new Error('Folder type is required and cannot be undefined.');
+//         }
+    
+//         // Determine the folder path based on the type
+//         let folderPath;
+//         switch (folderType) {
+//           case 'vehicle_photos':
+//             const uniqueId = Date.now();
+//             folderPath = `vehicle_photos/${uniqueId}`;
+//             break;
+    
+//           case 'yard-owner-profile':
+//             if (!yardname) {
+//               throw new Error('Yardname is required for yard-owner-profile uploads');
+//             }
+//             folderPath = `yard-owner-profile/${yardname}`;
+//             break;
+    
+//           default:
+//             throw new Error(`Invalid folder type specified: ${folderType}`);
+//         }
+    
+//         // Upload to Cloudinary
+//         return cloudinary.uploader.upload(filePath, {
+//           folder: folderPath,
+//           public_id: `${Date.now()}_${fieldName}`,
+//           resource_type: 'image',
+//         })
+//           .then(result => {
+//             const uploadedUrl = result.secure_url;
+//             fs.unlinkSync(filePath); // Remove local file
+//             return uploadedUrl;
+//           })
+//           .catch(error => {
+//             console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
+//             throw new Error(`Failed to upload ${fieldName}. Please try again.`);
+//           });
+    
+//       } catch (error) {
+//         console.error('Error in uploadToCloudinary:', error.message);
+//         throw error;
+//       }
+//     };
+//     const uploadedPhotos = {}; 
+//     // Step 3: Upload files to Cloudinary
+//     console.log('Files received:', req.files);
+//     const uploadPromises = Object.keys(req.files).map(fieldName => {
+//       const file = req.files[fieldName][0];
+//       return uploadToCloudinary(file.path, fieldName);
+//     });
+
+//     // Wait for all files to be uploaded
+//     await Promise.all(uploadPromises);
+
+//     // Step 4: Update inward form with the uploaded photo URLs
+//     inwardForm.vehiclePhotos = {
+//       frontView: uploadedPhotos.frontView || null,
+//       rightView: uploadedPhotos.rightView || null,
+//       backView: uploadedPhotos.backView || null,
+//       leftView: uploadedPhotos.leftView || null,
+//       engineView: uploadedPhotos.engineView || null,
+//       meterReading: uploadedPhotos.meterReading || null
+//     };
+
+//     inwardForm.tyrePhotos = {};
+//     for (let i = 1; i <= 10; i++) {
+//       const tyreField = `tyre${i}`;
+//       inwardForm.tyrePhotos[tyreField] = uploadedPhotos[tyreField] || null;
+//     }
+
+//     // Step 5: Save the updated inward form
+//     const updatedInward = await inwardForm.save();
+//     res.status(200).json({
+//       message: 'Photos uploaded successfully',
+//       uniqueId: uniqueId,
+//       data: updatedInward
+//     });
+
+//   } catch (err) {
+//     console.log('Error details:', err);
+//     res.status(400).json({
+//       message: 'Error uploading photos',
+//       error: err.message
+//     });
+//   }
+// });
+
+
+
+
+
+// OUTWARD API - ABDUL
+
+// Outward API
+// Outward API Route
+
+// Defining a route to fetch inward data
 app.post('/api/inward/:id/photos', upload.fields([
   { name: 'frontView', maxCount: 1 },
   { name: 'rightView', maxCount: 1 },
@@ -625,84 +766,65 @@ app.post('/api/inward/:id/photos', upload.fields([
   { name: 'tyre10', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    // Check what files were received
-    const uniqueId = req.params.id; // Get uniqueId from the URL parameter
- 
-    
-    // Validate the uniqueId format (you can add a custom validation for your specific format if needed)
+    const uniqueId = req.params.id;
+
+    // Validate the uniqueId
     if (!uniqueId) {
-     
       return res.status(400).json({ message: 'Unique ID is required' });
- 
     }
 
     // Find the inward form by uniqueId
     const inwardForm = await InwardForm.findOne({ uniqueId: uniqueId });
-
     if (!inwardForm) {
-      return res.status(404).json({ message: 'Inward form not found or incomplete. Please make sure the form is created correctly.' });
-
+      return res.status(404).json({ message: 'Inward form not found' });
     }
 
- 
-    
-    const uploadToCloudinary = (filePath, fieldName, folderType = 'vehicle_photos', yardname = null) => {
+    // Helper function to upload files to Cloudinary
+    const uploadToCloudinary = async (filePath, fieldName, folderType = 'vehicle_photos', yardname = null) => {
+      let folderPath;
+
+      switch (folderType) {
+        case 'vehicle_photos':
+          folderPath = `vehicle_photos/${uniqueId}`;
+          break;
+
+        case 'yard-owner-profile':
+          if (!yardname) {
+            throw new Error('Yardname is required for yard-owner-profile uploads');
+          }
+          folderPath = `yard-owner-profile/${yardname}`;
+          break;
+
+        default:
+          throw new Error(`Invalid folder type specified: ${folderType}`);
+      }
+
       try {
-        // Validate inputs
-        if (!folderType) {
-          throw new Error('Folder type is required and cannot be undefined.');
-        }
-    
-        // Determine the folder path based on the type
-        let folderPath;
-        switch (folderType) {
-          case 'vehicle_photos':
-            const uniqueId = Date.now();
-            folderPath = `vehicle_photos/${uniqueId}`;
-            break;
-    
-          case 'yard-owner-profile':
-            if (!yardname) {
-              throw new Error('Yardname is required for yard-owner-profile uploads');
-            }
-            folderPath = `yard-owner-profile/${yardname}`;
-            break;
-    
-          default:
-            throw new Error(`Invalid folder type specified: ${folderType}`);
-        }
-    
-        // Upload to Cloudinary
-        return cloudinary.uploader.upload(filePath, {
+        const result = await cloudinary.uploader.upload(filePath, {
           folder: folderPath,
           public_id: `${Date.now()}_${fieldName}`,
           resource_type: 'image',
-        })
-          .then(result => {
-            const uploadedUrl = result.secure_url;
-            fs.unlinkSync(filePath); // Remove local file
-            return uploadedUrl;
-          })
-          .catch(error => {
-            console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
-            throw new Error(`Failed to upload ${fieldName}. Please try again.`);
-          });
-    
+        });
+
+        fs.unlinkSync(filePath); // Remove the local file after upload
+        return result.secure_url;
       } catch (error) {
-        console.error('Error in uploadToCloudinary:', error.message);
-        throw error;
+        console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
+        throw new Error(`Failed to upload ${fieldName}`);
       }
     };
-    
+
+    const uploadedPhotos = {};
+
     // Step 3: Upload files to Cloudinary
     console.log('Files received:', req.files);
-    const uploadPromises = Object.keys(req.files).map(fieldName => {
+    const uploadPromises = Object.keys(req.files).map(async (fieldName) => {
       const file = req.files[fieldName][0];
-      return uploadToCloudinary(file.path, fieldName);
+      const uploadedUrl = await uploadToCloudinary(file.path, fieldName);
+      uploadedPhotos[fieldName] = uploadedUrl;
     });
 
-    // Wait for all files to be uploaded
-    await Promise.all(uploadPromises);
+    await Promise.all(uploadPromises); // Wait for all uploads to complete
 
     // Step 4: Update inward form with the uploaded photo URLs
     inwardForm.vehiclePhotos = {
@@ -722,26 +844,26 @@ app.post('/api/inward/:id/photos', upload.fields([
 
     // Step 5: Save the updated inward form
     const updatedInward = await inwardForm.save();
+
     res.status(200).json({
       message: 'Photos uploaded successfully',
       uniqueId: uniqueId,
-      data: updatedInward
+      data: updatedInward,
     });
-
   } catch (err) {
-    console.log('Error details:', err);
+    console.error('Error details:', err);
     res.status(400).json({
       message: 'Error uploading photos',
-      error: err.message
+      error: err.message,
     });
   }
 });
-// OUTWARD API - ABDUL
 
-// Outward API
-// Outward API Route
 
-// Defining a route to fetch inward data
+
+
+
+
 app.get('/outward/:uniqueId', async (req, res) => {
   try {
     const uniqueId = Number(req.params.uniqueId);

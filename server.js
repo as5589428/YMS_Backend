@@ -177,6 +177,33 @@ app.post('/login', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+// Get User Profile endpoint
+app.get('/profile', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+      return res.status(401).json({ message: 'Access denied. No token provided.' });
+  }
+
+  try {
+      // Verify token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Find user by ID from decoded token
+      const user = await User.findById(decoded.id).select('-password'); // Exclude password field
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Send user profile
+      res.json({ user });
+  } catch (error) {
+      console.error('Error fetching user profile:', error);
+      res.status(403).json({ message: 'Invalid or expired token' });
+  }
+});
+
 // YardOwner Login endpoint
 // Register YardOwner API
 // Register API 
@@ -471,6 +498,57 @@ app.post('/finance/stock', async (req, res) => {
   }
 });
 
+// Finance Review Post and Get 
+// Function to generate a Unique 4-5 digit number 
+
+async function generateUniqueReviewId() {
+  let isUnique = false;
+  let newId;
+
+  while (!isUnique) {
+      newId = Math.floor(1000 + Math.random() * 9000); // Generates a 4-digit ID
+      const existingReview = await FinanceReview.findOne({ reviewId: newId });
+      if (!existingReview) {
+          isUnique = true;
+      }
+  }
+
+  return newId;
+}
+
+// Finance Review Post 
+
+app.post('/api/reviews', async (req, res) => {
+  try {
+      const { reviewText } = req.body;
+      if (!reviewText) {
+          return res.status(400).json({ message: "Review text is required" });
+      }
+
+      const reviewId = await generateUniqueReviewId(); // Get a unique 4-5 digit ID
+      const newReview = new FinanceReview({ reviewId, reviewText });
+
+      await newReview.save();
+
+      res.status(201).json({ message: "Review added successfully", review: newReview });
+  } catch (error) {
+      console.error("Error adding review:", error);
+      res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+// Finance Review Get
+
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const reviews = await FinanceReview.find(); // Use FinanceReview instead of Review
+    res.status(200).json(reviews);
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 
 
@@ -892,6 +970,8 @@ app.get('/outward/:uniqueId', async (req, res) => {
     });
   }
 });
+
+
   //MMV API
 // MMV API - Add this new dataset fetching API
 

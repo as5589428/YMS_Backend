@@ -21,6 +21,7 @@ const yardRoutes = require('./routes/yardRoutes');
 const path = require('path');
 const StateCityPincode = require('./models/StateCityPincode');
 const Rate_Chart = require('./models/Rate_Chart');
+const OutwardForm = require('./models/OutwardForm');
 dotenv.config();
 const router = express.Router();
 const app = express();
@@ -1322,11 +1323,14 @@ app.post('/api/outward/:id/photos', upload.fields([
       geoLocation: inwardForm.geoLocation,
       vehicleDetails: inwardForm.vehicleDetails,
       checklist: inwardForm.checklist
-    };
-
-    let outwardForm = new OutwardForm(outwardFormData);
-    outwardForm = await outwardForm.save(); // Save the new outward form
-
+  };
+  
+  // Create an instance of the model
+  let outwardForm = new OutwardForm(outwardFormData);
+  
+  // ✅ Correct way to save
+  await outwardForm.save(); 
+  
     // Helper function to upload to Cloudinary
     const uploadToCloudinary = async (filePath, fieldName) => {
       try {

@@ -1274,7 +1274,119 @@ app.post('/api/calculate-charges', async (req, res) => {
   }
 });
 
+// Upload outward photos API
 
+app.post('/api/outward/:id/photos', upload.fields([
+  { name: 'frontView', maxCount: 1 },
+  { name: 'rightView', maxCount: 1 },
+  { name: 'backView', maxCount: 1 },
+  { name: 'leftView', maxCount: 1 },
+  { name: 'engineView', maxCount: 1 },
+  { name: 'meterReading', maxCount: 1 },
+  { name: 'tyre1', maxCount: 1 },
+  { name: 'tyre2', maxCount: 1 },
+  { name: 'tyre3', maxCount: 1 },
+  { name: 'tyre4', maxCount: 1 },
+  { name: 'tyre5', maxCount: 1 },
+  { name: 'tyre6', maxCount: 1 },
+  { name: 'tyre7', maxCount: 1 },
+  { name: 'tyre8', maxCount: 1 },
+  { name: 'tyre9', maxCount: 1 },
+  { name: 'tyre10', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const uniqueId = req.params.id;
+
+    // Step 1: Fetch data from InwardForm
+    const inwardForm = await InwardForm.findOne({ uniqueId: uniqueId });
+    if (!inwardForm) {
+      return res.status(404).json({ message: 'Inward form not found' });
+    }
+
+    // Step 2: Create new OutwardForm with data from InwardForm
+    const outwardFormData = {
+      uniqueId: uniqueId,
+      clientName: inwardForm.clientName,
+      financeCompanyName: inwardForm.financeCompanyName,
+      agreementNumber: inwardForm.agreementNumber,
+      make: inwardForm.make,
+      model: inwardForm.model,
+      variant: inwardForm.variant,
+      refNo: inwardForm.refNo,
+      segment: inwardForm.segment,
+      loanNo: inwardForm.loanNo,
+      fuelType: inwardForm.fuelType,
+      odometerReading: inwardForm.odometerReading,
+      yard: inwardForm.yard,
+      outwardDateTime: new Date().toISOString(),
+      geoLocation: inwardForm.geoLocation,
+      vehicleDetails: inwardForm.vehicleDetails,
+      checklist: inwardForm.checklist
+    };
+
+    let outwardForm = new OutwardForm(outwardFormData);
+    outwardForm = await outwardForm.save(); // Save the new outward form
+
+    // Helper function to upload to Cloudinary
+    const uploadToCloudinary = async (filePath, fieldName) => {
+      try {
+        const result = await cloudinary.uploader.upload(filePath, {
+          folder: `vehicle_photos/${uniqueId}`,
+          public_id: `${Date.now()}_${fieldName}`,
+          resource_type: 'image',
+        });
+        fs.unlinkSync(filePath); // Remove local file after upload
+        return result.secure_url;
+      } catch (error) {
+        console.error(`Error uploading ${fieldName} to Cloudinary:`, error);
+        throw new Error(`Failed to upload ${fieldName}`);
+      }
+    };
+
+    // Step 3: Upload files to Cloudinary
+    const uploadedPhotos = {};
+    console.log('Files received:', req.files);
+
+    const uploadPromises = Object.keys(req.files).map(async (fieldName) => {
+      const file = req.files[fieldName][0];
+      const uploadedUrl = await uploadToCloudinary(file.path, fieldName);
+      uploadedPhotos[fieldName] = uploadedUrl;
+    });
+
+    await Promise.all(uploadPromises);
+
+    // Step 4: Update outward form with uploaded URLs
+    outwardForm.vehiclePhotos = {
+      frontView: uploadedPhotos.frontView || null,
+      rightView: uploadedPhotos.rightView || null,
+      backView: uploadedPhotos.backView || null,
+      leftView: uploadedPhotos.leftView || null,
+      engineView: uploadedPhotos.engineView || null,
+      meterReading: uploadedPhotos.meterReading || null
+    };
+
+    outwardForm.tyrePhotos = {};
+    for (let i = 1; i <= 10; i++) {
+      const tyreField = `tyre${i}`;
+      outwardForm.tyrePhotos[tyreField] = uploadedPhotos[tyreField] || null;
+    }
+
+    await outwardForm.save();
+
+    res.status(200).json({
+      message: 'Outward form created and photos uploaded successfully',
+      uniqueId: uniqueId,
+      data: outwardForm,
+    });
+
+  } catch (err) {
+    console.error('Error details:', err);
+    res.status(500).json({
+      message: 'Error processing outward form',
+      error: err.message,
+    });
+  }
+});
 
 
 // Start the server

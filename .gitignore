@@ -15,8 +15,8 @@ logs/
 cache/
 
 # Ensure `upload/` is **not** ignored
-!upload/
-!upload/**
+!uploads/
+!uploads/**
 
 # Ignore other upload-related files (optional)
 uploads_tmp/

@@ -22,6 +22,7 @@ const path = require('path');
 const StateCityPincode = require('./models/StateCityPincode');
 const Rate_Chart = require('./models/Rate_Chart');
 const OutwardForm = require('./models/OutwardForm');
+
 dotenv.config();
 const router = express.Router();
 const app = express();
@@ -993,7 +994,7 @@ app.get('/api/inward/:uniqueId', async (req, res) => {
 
   try {
     // Ensure uniqueId is treated as a number (since MongoDB stores it as a number)
-    const numericUniqueId = Number(uniqueId);
+    const numericUniqueId = Number(uniqueId); 
 
     // Validate that the uniqueId is a valid number
     if (isNaN(numericUniqueId)) {
@@ -1392,11 +1393,55 @@ app.post('/api/outward/:id/photos', upload.fields([
   }
 });
 
+//outwardForm fetching for outward_vehicle_list
+// API endpoint to fetch outward forms
+
+// Get all outward forms
+app.get('/api/outward-form', async (req, res) => {
+  try {
+      const forms = await OutwardForm.find();
+      res.status(200).json(forms);
+  } catch (error) {
+      res.status(500).json({ message: 'Error fetching outward forms', error: error.message });
+  }
+});
+
+
+
+// Fetch outward form by uniqueId instead of _id
+app.get('/api/outward-form/:uniqueId', async (req, res) => {
+  try {
+      const form = await OutwardForm.findOne({ uniqueId: req.params.uniqueId });
+      if (!form) {
+          return res.status(404).json({ message: 'Outward form not found' });
+      }
+      res.status(200).json(form);
+  } catch (error) {
+      res.status(500).json({ message: 'Error fetching outward form', error: error.message });
+  }
+});
+
+
+// Delete an outward form by ID
+app.delete('/api/outward-form/:uniqueId', async (req, res) => {
+  try {
+      const deletedForm = await OutwardForm.findOneAndDelete({ uniqueId: req.params.uniqueId });
+      if (!deletedForm) {
+          return res.status(404).json({ message: 'Outward form not found' });
+      }
+      res.status(200).json({ message: 'Outward form deleted successfully' });
+  } catch (error) {
+      res.status(500).json({ message: 'Error deleting outward form', error: error.message });
+  }
+});
+
 
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
+    
 });
+
 
 // app.listen(PORT, () => {
 //   console.log(`Server is running on http://localhost:${PORT}`);

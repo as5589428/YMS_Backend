@@ -941,7 +941,7 @@ app.post('/api/inward/:id/photos', upload.fields([
 
 
 
-
+ 
 
 
 app.get('/outward/:uniqueId', async (req, res) => {
@@ -1004,7 +1004,7 @@ app.get('/api/inward/:uniqueId', async (req, res) => {
 
     // Query the InwardForm collection for the uniqueId
     const inwardForm = await InwardForm.findOne({ uniqueId: numericUniqueId });
-
+ 
     // Check if the form exists
     if (!inwardForm) {
       console.log('No InwardForm found for uniqueId:', numericUniqueId);
@@ -1172,6 +1172,109 @@ app.put('/api/rates/:id', async (req, res) => {
   }
 });
 // POST /api/calculate-charges
+// app.post('/api/calculate-charges', async (req, res) => {
+//   try {
+//     const { uniqueId, Client_Segment } = req.body;
+
+//     // Validate required inputs
+//     if (!uniqueId || typeof uniqueId !== 'string' || uniqueId.trim() === "") {
+//       return res.status(400).json({ error: "uniqueId is required and must be a non-empty string." });
+//     }
+//     if (!Client_Segment || typeof Client_Segment !== 'string' || Client_Segment.trim() === "") {
+//       return res.status(400).json({ error: "Client_Segment is required and must be a non-empty string." });
+//     }
+
+//     // Fetch car entry using uniqueId
+//     const carEntry = await InwardForm.findOne({ uniqueId: uniqueId.trim() });
+
+//     if (!carEntry) {
+//       return res.status(404).json({ error: "Car entry not found for the provided uniqueId." });
+//     }
+
+//     // Extract details from carEntry
+//     const { createdAt, clientName, agreementNumber } = carEntry;
+
+//     // Validate fetched car entry details
+//     if (!createdAt || !clientName || !agreementNumber) {
+//       return res.status(400).json({ error: "Incomplete data in car entry. Ensure createdAt, clientName, and agreementNumber exist." });
+//     }
+
+//     // Log car entry details for debugging
+//     console.log("Car Entry Details:", { createdAt, clientName, agreementNumber });
+
+//     // Calculate duration in days based on createdAt
+//     const entryDate = moment(createdAt);
+//     const currentDate = moment();
+
+//     if (!entryDate.isValid()) {
+//       return res.status(400).json({ error: "Invalid date format in car entry." });
+//     }
+
+//     const durationDays = currentDate.diff(entryDate, 'days');
+
+//     // Log the received Client_Segment value
+//     console.log("Received Client_Segment:", Client_Segment.trim());
+
+//     // Query Rate_Chart for the provided Client_Segment
+//     const rateChart = await Rate_Chart.findOne({
+//       Client_Segment: { $regex: new RegExp(`^${Client_Segment.trim()}$`, 'i') }
+//     });
+    
+//     console.log("Querying Rate_Chart with Client_Segment:", Client_Segment.trim());
+//     console.log("Rate Chart Found:", rateChart);
+
+//     // Handle case where no matching rate chart is found
+//     if (!rateChart) {
+//       return res.status(404).json({ error: `Rate not found for Client_Segment: ${Client_Segment.trim()}` });
+//     }
+
+//     const { Rate } = rateChart;
+
+//     // Convert Rate to a number
+//     const numericRate = parseFloat(Rate);
+
+//     // Validate Rate
+//     if (isNaN(numericRate) || numericRate <= 0) {
+//       return res.status(400).json({ error: `Invalid rate found for Client_Segment: ${Client_Segment.trim()}` });
+//     }
+
+//     // Determine duration type and calculate total charge
+//     let totalCharge, durationType;
+
+//     if (durationDays <= 30) {
+//       totalCharge = durationDays * numericRate;
+//       durationType = 'daily';
+//     } else if (durationDays <= 365) {
+//       const months = Math.ceil(durationDays / 30);
+//       totalCharge = months * numericRate;
+//       durationType = 'monthly';
+//     } else {
+//       const years = Math.ceil(durationDays / 365);
+//       totalCharge = years * numericRate;
+//       durationType = 'yearly';
+//     }
+
+//     // Validate total charge
+//     if (totalCharge === null || totalCharge === undefined) {
+//       return res.status(400).json({ error: "Unable to calculate the total charge. Please check your inputs." });
+//     }
+
+//     // Respond with calculated charges
+//     return res.json({
+//       car_id: carEntry.uniqueId,
+//       created_at: createdAt,
+//       clientName,
+//       agreementNumber,
+//       Client_Segment: Client_Segment.trim(),
+//       duration_type: durationType,
+//       duration_value: durationDays,
+//       total_charge: totalCharge,
+//     });
+//   } catch (error) {
+//     console.error("Error calculating charges:", error);
+//     return res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
 app.post('/api/calculate-charges', async (req, res) => {
   try {
     const { uniqueId, Client_Segment } = req.body;
@@ -1210,7 +1313,8 @@ app.post('/api/calculate-charges', async (req, res) => {
       return res.status(400).json({ error: "Invalid date format in car entry." });
     }
 
-    const durationDays = currentDate.diff(entryDate, 'days');
+    // Add +1 day to the duration calculation
+    const durationDays = currentDate.diff(entryDate, 'days') + 1;
 
     // Log the received Client_Segment value
     console.log("Received Client_Segment:", Client_Segment.trim());
@@ -1259,6 +1363,10 @@ app.post('/api/calculate-charges', async (req, res) => {
       return res.status(400).json({ error: "Unable to calculate the total charge. Please check your inputs." });
     }
 
+    // Calculate 18% GST
+    const gstAmount = totalCharge * 0.18;
+    const totalChargeWithGST = totalCharge + gstAmount;
+
     // Respond with calculated charges
     return res.json({
       car_id: carEntry.uniqueId,
@@ -1269,13 +1377,14 @@ app.post('/api/calculate-charges', async (req, res) => {
       duration_type: durationType,
       duration_value: durationDays,
       total_charge: totalCharge,
+      gst_amount: gstAmount,
+      total_charge_with_gst: totalChargeWithGST,
     });
   } catch (error) {
     console.error("Error calculating charges:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 // Upload outward photos API
 
 app.post('/api/outward/:id/photos', upload.fields([

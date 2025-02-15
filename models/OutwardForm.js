@@ -103,18 +103,7 @@ const OutwardFormSchema = new mongoose.Schema({
   },
 
   // Exit form schema
-  exitForm: {
-    clientName: String,
-    uniqueId: String,
-    make: String,
-    exitDate: { type: Date, default: Date.now },
-    agreementNumber: String,
-    loanNo: String,
-    customerName: String,
-    engineNumber: String,
-    odometerReading: String,
-    remarks: String
-  }
+
 },{ timestamps: true });
 
 const OutwardForm = mongoose.model('OutwardForm', OutwardFormSchema);

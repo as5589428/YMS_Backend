@@ -17,6 +17,8 @@ const makeModelDataset = require('./models/makeModelVariant');  // Import the ro
 const cloudinary = require('cloudinary').v2;
 const yardRoutes = require('./routes/yardRoutes');
 // const makeModelDataset = require('./models/makeModelDataset'); // Import your model
+const Razorpay = require('razorpay');
+
 
 const path = require('path');
 const StateCityPincode = require('./models/StateCityPincode');
@@ -38,6 +40,12 @@ mongoose.connect(process.env.MONGODB_URI, {
 })
 .then(() => console.log('MongoDB connected'))
 .catch(err => console.error(err));
+
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_SECRET
+});
 
 
 require('dotenv').config(); // Load environment variables
@@ -408,24 +416,76 @@ try {
 });
 // Route to create a new gate pass
 // Updated route without photo handling
-app.post('/finance/gatepass', async (req, res) => {
-  const { name, aadharNumber, mobileNumber, vehicleNumber } = req.body;
+// Route to create a new gate pass
+const { body, validationResult } = require('express-validator');
 
-  try {
+app.post(
+  '/finance/gatepass',
+  upload.fields([{ name: 'userPhoto', maxCount: 1 }, { name: 'aadharPhoto', maxCount: 1 }]),
+  [
+    body('name').notEmpty().withMessage('Name is required'),
+    body('yardname').notEmpty().withMessage('Yard name is required'),
+    body('aadharNumber').notEmpty().withMessage('Aadhar Number is required'),
+    body('mobileNumber').notEmpty().withMessage('Mobile Number is required'),
+    body('vehicleNumber').notEmpty().withMessage('Vehicle Number is required'),
+    body('visitortype').notEmpty().withMessage('Visitor Type is Required '),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, yardname, aadharNumber, mobileNumber, vehicleNumber, visitortype } = req.body;
+
+    try {
+      // Helper function to upload a file to Cloudinary
+      const uploadToCloudinary = (file) => {
+        console.log('Uploading file to Cloudinary:', file.path);
+        return new Promise((resolve, reject) => {
+          cloudinary.uploader.upload(file.path, { folder: 'finance_gatepass' }, (error, result) => {
+            if (error) {
+              console.error('Cloudinary upload error:', error);
+              reject(error);
+            } else {
+              console.log('Cloudinary upload result:', result);
+              resolve(result.secure_url);
+            }
+          });
+        });
+      };
+
+      // Log files for debugging
+      console.log('Files:', req.files);
+
+      // Upload user photo and aadhar photo to Cloudinary if they exist
+      const userPhotoUrl = req.files['userPhoto'] ? await uploadToCloudinary(req.files['userPhoto'][0]) : null;
+      const aadharPhotoUrl = req.files['aadharPhoto'] ? await uploadToCloudinary(req.files['aadharPhoto'][0]) : null;
+
+      // Cleanup local files after upload
+      if (req.files['userPhoto']) fs.unlinkSync(req.files['userPhoto'][0].path);
+      if (req.files['aadharPhoto']) fs.unlinkSync(req.files['aadharPhoto'][0].path);
+
+      // Create new gate pass entry
       const newGatePass = new GatePass({
-          name,
-          aadharNumber,
-          mobileNumber,
-          vehicleNumber,
+        name,
+        yardname,
+        aadharNumber,
+        mobileNumber,
+        vehicleNumber,
+        visitortype,
+        userPhoto: userPhotoUrl,
+        aadharPhoto: aadharPhotoUrl,
       });
 
       await newGatePass.save();
       res.status(201).json({ message: 'Gate pass created successfully.', data: newGatePass });
-  } catch (error) {
+    } catch (error) {
       console.error('Error creating gate pass:', error);
       res.status(500).json({ message: 'Error creating gate pass', error: error.message });
-  }
-});
+    }
+  }
+);
 
 
 // Route to get gate pass details by ID
@@ -1358,7 +1418,7 @@ app.post('/api/calculate-charges', async (req, res) => {
       durationType = 'yearly';
     }
 
-    // Validate total charge
+    // Validate total charge 
     if (totalCharge === null || totalCharge === undefined) {
       return res.status(400).json({ error: "Unable to calculate the total charge. Please check your inputs." });
     }
@@ -1383,6 +1443,84 @@ app.post('/api/calculate-charges', async (req, res) => {
   } catch (error) {
     console.error("Error calculating charges:", error);
     return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Create Order Endpoint
+app.post('/api/create-order', async (req, res) => {
+  try {
+      const { uniqueId, Client_Segment } = req.body;
+
+      // Validate required inputs
+      if (!uniqueId || !Client_Segment) {
+          return res.status(400).json({ error: "uniqueId and Client_Segment are required." });
+      }
+
+      // Calculate charges using the helper function
+      const charges = await calculateCharges(uniqueId, Client_Segment);
+      const amountInPaise = Math.round(charges.total_charge_with_gst * 100);
+
+      // Create Razorpay order
+      const orderOptions = {
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: `receipt_${uniqueId}_${Date.now()}`,
+          payment_capture: 1 // Auto-capture payment
+      };
+
+      const razorpayOrder = await razorpay.orders.create(orderOptions);
+
+      // Respond with order details
+      res.json({
+          orderId: razorpayOrder.id,
+          amount: razorpayOrder.amount,
+          currency: razorpayOrder.currency,
+          key: process.env.RAZORPAY_KEY_ID // For client-side integration
+      });
+
+  } catch (error) {
+      console.error("Error creating Razorpay order:", error);
+      res.status(500).json({ error: "Failed to create payment order" });
+  }
+});
+
+
+app.post('/api/verify-payment', async (req, res) => {
+  try {
+      const { order_id, payment_id, razorpay_signature } = req.body;
+
+      // Generate the expected signature
+      const body = order_id + "|" + payment_id;
+      const expectedSignature = crypto
+          .createHmac('sha256', process.env.RAZORPAY_SECRET)
+          .update(body)
+          .digest('hex');
+
+      // Validate the signature
+      if (expectedSignature !== razorpay_signature) {
+          return res.status(400).json({ error: "Invalid payment signature" });
+      }
+
+      // Signature is valid - update your database
+      // Example: Save payment details to the database
+      const paymentDetails = {
+          orderId: order_id,
+          paymentId: payment_id,
+          signature: razorpay_signature,
+          status: 'success',
+          amount: req.body.amount // Passed from client
+      };
+
+      // TODO: Save paymentDetails to your database
+
+      res.json({ 
+          status: 'success', 
+          message: 'Payment verified successfully' 
+      });
+
+  } catch (error) {
+      console.error("Payment verification error:", error);
+      res.status(500).json({ error: "Payment verification failed" });
   }
 });
 // Upload outward photos API

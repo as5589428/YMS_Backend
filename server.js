@@ -2097,8 +2097,78 @@ app.delete('/api/outward-form/:uniqueId', async (req, res) => {
       res.status(500).json({ message: 'Error deleting outward form', error: error.message });
   }
 });
+// API'S FOR ADMIN YardOwenr 
 
+app.get('/api/outward-entries', async (req, res) => {
+  try {
+      const { yard } = req.query;
 
+      if (!yard) {
+          return res.status(400).json({ message: 'Yard name is required' });
+      }
+
+      // Fetch outward entries filtered by the yard field
+      const outwardEntries = await OutwardForm.find({ yard });
+
+      if (outwardEntries.length === 0) {
+          return res.status(404).json({ message: 'No outward entries found for this yard' });
+      }
+
+      res.status(200).json(outwardEntries);
+  } catch (error) {
+      console.error('Error fetching outward entries:', error);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+});
+app.get('/api/inward-entries', async (req, res) => {
+  try {
+      console.log('Received Query:', req.query);
+      const { yard } = req.query;
+
+      if (!yard) {
+          return res.status(400).json({ message: 'Yard name is required' });
+      }
+
+      const trimmedYard = yard.trim();
+      console.log('Searching for yard:', trimmedYard);
+
+      const inwardEntries = await InwardForm.find({
+          yard: { $regex: new RegExp(trimmedYard.replace(/\s+/g, '\\s*'), 'i') }
+      });
+
+      if (inwardEntries.length === 0) {
+          console.log('No inward entries found for:', trimmedYard);
+          return res.status(404).json({ message: 'No inward entries found for this yard' });
+      }
+
+      res.status(200).json(inwardEntries);
+  } catch (error) {
+      console.error('Error fetching inward entries:', error);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+});
+// API to fetch all yard owners
+
+app.get('/api/yardowners', async (req, res) => {
+  try {
+    const inwardEntries = await InwardForm.find({}); // Fetch all inward entries
+    res.status(200).json(inwardEntries);
+  } catch (error) {
+    console.error('Error fetching inward entries:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+// API to fetch all yard owners
+
+app.get('/api/yardowners', async (req, res) => {
+  try {
+    const inwardEntries = await InwardForm.find({}); // Fetch all inward entries
+    res.status(200).json(inwardEntries);
+  } catch (error) {
+    console.error('Error fetching inward entries:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

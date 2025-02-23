@@ -29,7 +29,17 @@ const OutwardFormSchema = new mongoose.Schema({
   yard: { type: String, required: true },
   outwardDateTime: { type: String, required: true },
   geoLocation: { type: String, required: true },
-  
+
+  // ✅ ADD STATUS FIELD FOR APPROVAL & REJECTION
+  status: {
+    type: String,
+    enum: ["pending", "approved", "rejected"], // Allowed values
+    default: "pending" // Default status is pending
+  },
+
+  // ✅ ADD FIELD FOR RELEASE DATE WHEN APPROVED
+  releaseDateTime: { type: String, default: null },
+
   // Vehicle Details section
   vehicleDetails: {
     customerName: { type: String, required: true },
@@ -100,12 +110,9 @@ const OutwardFormSchema = new mongoose.Schema({
     tyre8: { type: String, default: null },
     tyre9: { type: String, default: null },
     tyre10: { type: String, default: null }
-  },
+  }
 
-  // Exit form schema
-
-},{ timestamps: true });
+}, { timestamps: true });
 
 const OutwardForm = mongoose.model('OutwardForm', OutwardFormSchema);
-
 module.exports = OutwardForm;

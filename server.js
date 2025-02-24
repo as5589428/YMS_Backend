@@ -20,12 +20,14 @@ const yardRoutes = require('./routes/yardRoutes');
 // const makeModelDataset = require('./models/makeModelDataset'); // Import your model
 const Razorpay = require('razorpay');
 
-
+const GatePass = require('./models/GatePass');
+const FinanceReview = require('./models/FinanceReview');
 const path = require('path');
 const StateCityPincode = require('./models/StateCityPincode');
 const Rate_Chart = require('./models/Rate_Chart');
 const OutwardForm = require('./models/OutwardForm');
 
+const Reminder = require('./models/Reminders');
 dotenv.config();
 const router = express.Router();
 const app = express();
@@ -571,6 +573,7 @@ app.get('/finance/gatepass', async (req, res) => {
 //Finance Stockmanagement 
 
 //Finance Stockmanagement 
+//Finance Stockmanagement 
 app.post('/finance/stock', async (req, res) => {
   const { clientName } = req.body; // Extracts clientName from the request body
 
@@ -609,8 +612,8 @@ app.post('/finance/stock', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching vehicle data:', error);
-    res.status(500).json({ message: 'Error fetching vehicle data' });
-  }
+    res.status(500).json({ message: 'Error fetching vehicle data' });
+  }
 });
 // Finance Review Post and Get 
 // Function to generate a Unique 4-5 digit number 
@@ -2169,6 +2172,12 @@ app.get('/api/yardowners', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+
+// Import routes (ensure your routes file is also converted to ES module syntax)
+
+// app.use('/api/history', historyRoutes);
+
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

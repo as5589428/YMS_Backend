@@ -853,7 +853,17 @@ app.get('/api/reviews', async (req, res) => {
 // });
 
 const secretKey = process.env.JWT_SECRET;// Use the same secret key from login
-
+async function uploadToCloudinary(filePath, folderName) {
+  try {
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: folderName,
+    });
+    return result.secure_url;
+  } catch (error) {
+    console.error('Error uploading to Cloudinary:', error);
+    throw error;
+  }
+}
 app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
   try {
     // Extract the JWT token from the Authorization header
@@ -882,12 +892,17 @@ app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
       return res.status(400).json({ message: 'Client Name and Agreement Number are required' });
     }
 
-    // Upload the `vahan_image` to Cloudinary
+    // Upload the vahan_image to Cloudinary
     let vahanImageUrl = null;
+
     if (req.file) {
       vahanImageUrl = await uploadToCloudinary(req.file.path, 'vahan-image');
     }
-
+    if (!req.file) {
+      console.log('No file uploaded');
+    } else {
+      console.log('File uploaded:', req.file);
+    }
     // Create the inward form data
     const inwardData = new InwardForm({
       userId, // Store the user ID from token
@@ -932,8 +947,8 @@ app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
     res.status(500).json({
       message: 'Error processing inward form data',
       error: err.message,
-    });
-  }
+    });
+  }
 });
 
 

@@ -9,6 +9,7 @@ const dotenv = require('dotenv');
 const multer = require('multer');
 const User = require('./models/User');
 const YardOwner = require('./models/YardOwner');
+const InwardDraft = require('./models/InwardDraft');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const FinanceEmployee = require('./models/FinanceEmployee');
@@ -574,31 +575,45 @@ app.get('/finance/gatepass', async (req, res) => {
 
 //Finance Stockmanagement 
 //Finance Stockmanagement 
+//Finance Stockmanagement 
+
 app.post('/finance/stock', async (req, res) => {
-  const { clientName } = req.body; // Extracts clientName from the request body
-
-  if (!clientName) {
-    return res.status(400).json({ message: 'Client name is required' });
-  }
-
   try {
-    // Case-insensitive query to find documents where clientName matches
+    let { clientName } = req.body;
+
+    if (!clientName || typeof clientName !== 'string' || clientName.trim() === '') {
+      return res.status(400).json({ message: 'Client name is required' });
+    }
+
+    clientName = clientName.trim(); // Trim spaces
+
+    console.log("🔍 Searching for client:", clientName);
+
+    // Debug: Show all stored client names
+    const allClients = await InwardForm.find({}, { clientName: 1, _id: 0 });
+    console.log("📋 All clients in DB:", allClients);
+
+    // Case-insensitive search, allowing spaces
     const vehicles = await InwardForm.find({
-      clientName: { $regex: new RegExp('^' + clientName + '$', 'i') }
+      clientName: { $regex: "^\\s*" + clientName + "\\s*$", $options: "i" }
     });
+
+    console.log("📊 Vehicles found:", vehicles.length);
 
     if (!vehicles || vehicles.length === 0) {
       return res.status(404).json({ message: 'No vehicles found for the given client' });
     }
 
-    // Process data (e.g., count, group by segments, etc.)
+    // Count total vehicles
     const totalVehicles = vehicles.length;
 
+    // Group vehicles by segments
     const segments = vehicles.reduce((acc, vehicle) => {
       acc[vehicle.segment] = (acc[vehicle.segment] || 0) + 1;
       return acc;
     }, {});
 
+    // Group vehicles by yards and segments within each yard
     const yards = vehicles.reduce((acc, vehicle) => {
       if (!acc[vehicle.yard]) acc[vehicle.yard] = {};
       acc[vehicle.yard][vehicle.segment] = (acc[vehicle.yard][vehicle.segment] || 0) + 1;
@@ -606,14 +621,16 @@ app.post('/finance/stock', async (req, res) => {
     }, {});
 
     res.status(200).json({
+      success: true,
+      message: "Vehicle data fetched successfully",
       totalVehicles,
       segments,
       yards,
     });
   } catch (error) {
-    console.error('Error fetching vehicle data:', error);
-    res.status(500).json({ message: 'Error fetching vehicle data' });
-  }
+    console.error("❌ Error fetching vehicle data:", error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
 });
 // Finance Review Post and Get 
 // Function to generate a Unique 4-5 digit number 
@@ -864,10 +881,111 @@ async function uploadToCloudinary(filePath, folderName) {
     throw error;
   }
 }
+// app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
+//   try {
+//     // Extract the JWT token from the Authorization header
+//     const token = req.headers.authorization?.split(' ')[1]; // Extract token after "Bearer "
+
+//     if (!token) {
+//       return res.status(401).json({ message: 'Unauthorized: No token provided' });
+//     }
+
+//     // Verify the token and extract user data
+//     let decoded;
+//     try {
+//       decoded = jwt.verify(token, secretKey);
+//     } catch (error) {
+//       return res.status(403).json({ message: 'Token verification failed', error: error.message });
+//     }
+
+//     // Extract userId from the decoded token
+//     const userId = decoded.userId; // Ensure your token contains userId during generation
+
+//     // Generate a unique ID
+//     const uniqueId = await generateUniqueID();
+
+//     // Validate required fields
+//     if (!req.body.clientName || !req.body.agreementNumber) {
+//       return res.status(400).json({ message: 'Client Name and Agreement Number are required' });
+//     }
+
+//     // Upload the vahan_image to Cloudinary
+//     let vahanImageUrl = null;
+
+//     if (req.file) {
+//       vahanImageUrl = await uploadToCloudinary(req.file.path, 'vahan-image');
+//     }
+//     if (!req.file) {
+//       console.log('No file uploaded');
+//     } else {
+//       console.log('File uploaded:', req.file);
+//     }
+//     // Create the inward form data
+//     const inwardData = new InwardForm({
+//       userId, // Store the user ID from token
+//       uniqueId,
+//       clientName: req.body.clientName,
+//       agreementNumber: req.body.agreementNumber,
+//       make: req.body.make,
+//       model: req.body.model,
+//       variant: req.body.variant,
+//       yom: req.body.yom,
+//       refNo: req.body.refNo,
+//       segment: req.body.segment,
+//       loanNo: req.body.loanNo,
+//       fuelType: req.body.fuelType,
+//       odometerReading: req.body.odometerReading,
+//       yard: req.body.yard,
+//       inwardDateTime: req.body.inwardDateTime,
+//       geoLocation: req.body.geoLocation,
+//       vehicleDetails: {
+//         customerName: req.body.vehicleDetails?.customerName || '',
+//         engineNumber: req.body.vehicleDetails?.engineNumber || '',
+//         chassisNumber: req.body.vehicleDetails?.chassisNumber || '',
+//         color: req.body.vehicleDetails?.color || '',
+//         vehicleClass: req.body.vehicleDetails?.vehicleClass || '',
+//         vehicleCondition: req.body.vehicleDetails?.vehicleCondition || '',
+//         keyLocation: req.body.vehicleDetails?.keyLocation || '',
+//         transmission: req.body.vehicleDetails?.transmission || '',
+//         remarks: req.body.vehicleDetails?.remarks || '',
+//       },
+//       checklist: Array.isArray(req.body.checklist) ? req.body.checklist : [],
+//       vahanImage: vahanImageUrl,
+//     });
+
+//     // Save the inward form data to the database
+//     const savedInward = await inwardData.save();
+//     res.status(201).json({
+//       message: 'Inward form data saved successfully',
+//       data: savedInward,
+//     });
+//   } catch (err) {
+//     console.error('Error processing inward form data:', err);
+//     res.status(500).json({
+//       message: 'Error processing inward form data',
+//       error: err.message,
+//     });
+//   }
+// });
+
+
+
+
+
+
+
+// OUTWARD API - ABDUL
+
+// Outward API
+// Outward API Route
+
+// Defining a route to fetch inward data
+
+
 app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
   try {
     // Extract the JWT token from the Authorization header
-    const token = req.headers.authorization?.split(' ')[1]; // Extract token after "Bearer "
+    const token = req.headers.authorization?.split(' ')[1];
 
     if (!token) {
       return res.status(401).json({ message: 'Unauthorized: No token provided' });
@@ -882,30 +1000,70 @@ app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
     }
 
     // Extract userId from the decoded token
-    const userId = decoded.userId; // Ensure your token contains userId during generation
+    const userId = decoded.userId;
 
-    // Generate a unique ID
-    const uniqueId = await generateUniqueID();
+    // Get form status (default is "submitted")
+    const formStatus = req.body.status || "submitted";
 
-    // Validate required fields
-    if (!req.body.clientName || !req.body.agreementNumber) {
+    // Check if an existing draft exists
+    let existingDraft = await InwardDraft.findOne({ uniqueId: req.body.uniqueId });
+
+    // Generate a unique ID if it's a new form
+    const uniqueId = existingDraft ? existingDraft.uniqueId : await generateUniqueID();
+
+    // Validate required fields for submission (not required for drafts)
+    if (formStatus === "submitted" && (!req.body.clientName || !req.body.agreementNumber)) {
       return res.status(400).json({ message: 'Client Name and Agreement Number are required' });
     }
 
-    // Upload the vahan_image to Cloudinary
-    let vahanImageUrl = null;
-
+    // Upload the vahan_image to Cloudinary (only for submitted forms)
+    let vahanImageUrl = existingDraft?.vahanImage || null;
     if (req.file) {
-      vahanImageUrl = await uploadToCloudinary(req.file.path, 'vahan-image');
+      try {
+        vahanImageUrl = await uploadToCloudinary(req.file.path, 'vahan-image');
+      } catch (error) {
+        console.error('Error uploading to Cloudinary:', error);
+        return res.status(500).json({ message: 'Failed to upload vahan image', error: error.message });
+      }
     }
-    if (!req.file) {
-      console.log('No file uploaded');
-    } else {
-      console.log('File uploaded:', req.file);
+
+    if (formStatus === "draft") {
+      // Save or update the draft
+      const draftData = {
+        userId,
+        uniqueId,
+        clientName: req.body.clientName,
+        agreementNumber: req.body.agreementNumber,
+        make: req.body.make,
+        model: req.body.model,
+        variant: req.body.variant,
+        yom: req.body.yom,
+        refNo: req.body.refNo,
+        segment: req.body.segment,
+        loanNo: req.body.loanNo,
+        fuelType: req.body.fuelType,
+        odometerReading: req.body.odometerReading,
+        yard: req.body.yard,
+        inwardDateTime: req.body.inwardDateTime,
+        geoLocation: req.body.geoLocation,
+        vehicleDetails: req.body.vehicleDetails || {},
+        checklist: Array.isArray(req.body.checklist) ? req.body.checklist : [],
+        vahanImage: vahanImageUrl,
+        lastUpdated: new Date(),
+        status: "draft"
+      };
+
+      await InwardDraft.findOneAndUpdate({ uniqueId }, draftData, { upsert: true, new: true });
+
+      return res.status(200).json({ message: 'Draft saved successfully', uniqueId });
     }
-    // Create the inward form data
+
+    // If the form is submitted, remove it from drafts
+    await InwardDraft.deleteOne({ uniqueId });
+
+    // Save the inward form data
     const inwardData = new InwardForm({
-      userId, // Store the user ID from token
+      userId,
       uniqueId,
       clientName: req.body.clientName,
       agreementNumber: req.body.agreementNumber,
@@ -921,48 +1079,19 @@ app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
       yard: req.body.yard,
       inwardDateTime: req.body.inwardDateTime,
       geoLocation: req.body.geoLocation,
-      vehicleDetails: {
-        customerName: req.body.vehicleDetails?.customerName || '',
-        engineNumber: req.body.vehicleDetails?.engineNumber || '',
-        chassisNumber: req.body.vehicleDetails?.chassisNumber || '',
-        color: req.body.vehicleDetails?.color || '',
-        vehicleClass: req.body.vehicleDetails?.vehicleClass || '',
-        vehicleCondition: req.body.vehicleDetails?.vehicleCondition || '',
-        keyLocation: req.body.vehicleDetails?.keyLocation || '',
-        transmission: req.body.vehicleDetails?.transmission || '',
-        remarks: req.body.vehicleDetails?.remarks || '',
-      },
+      vehicleDetails: req.body.vehicleDetails || {},
       checklist: Array.isArray(req.body.checklist) ? req.body.checklist : [],
       vahanImage: vahanImageUrl,
     });
 
-    // Save the inward form data to the database
     const savedInward = await inwardData.save();
-    res.status(201).json({
-      message: 'Inward form data saved successfully',
-      data: savedInward,
-    });
+
+    res.status(201).json({ message: 'Inward form submitted successfully', data: savedInward });
   } catch (err) {
     console.error('Error processing inward form data:', err);
-    res.status(500).json({
-      message: 'Error processing inward form data',
-      error: err.message,
-    });
-  }
+    res.status(500).json({ message: 'Error processing inward form data', error: err.message });
+  }
 });
-
-
-
-
-
-
-
-// OUTWARD API - ABDUL
-
-// Outward API
-// Outward API Route
-
-// Defining a route to fetch inward data
 app.post('/api/inward/:id/photos', upload.fields([
   { name: 'frontView', maxCount: 1 },
   { name: 'rightView', maxCount: 1 },
@@ -1076,9 +1205,237 @@ app.post('/api/inward/:id/photos', upload.fields([
 });
 
 
+// JOB SCHEDULE FOR DRAFT
 
+const cron = require('node-cron');
+
+cron.schedule('*/10 * * * *', async () => { // Runs every 10 minutes
+  try {
+    const timeoutPeriod = 30 * 60 * 1000; // 30 minutes
+    const cutoffTime = new Date(Date.now() - timeoutPeriod);
+
+    const incompleteDrafts = await InwardDraft.find({ 
+      status: "draft", 
+      lastUpdated: { $lt: cutoffTime } 
+    });
+
+    for (const draft of incompleteDrafts) {
+      draft.status = "incomplete"; // Use "incomplete" instead of "pending"
+      draft.reason = "timeout";
+      draft.lastUpdated = new Date();
+      await draft.save();
+    }
+
+   
+  } catch (error) {
+    console.error("Failed to check incomplete drafts:", error);
+  }
+});
  
+// Save Draft API
+app.post('/api/inward/draft', async (req, res) => {
+  try {
+    console.log('📥 Received draft data:', req.body);
 
+    const draftData = req.body;
+    draftData.lastUpdated = new Date();
+    
+    // Ensure refNo is a string
+    if (draftData.refNo) {
+      draftData.refNo = String(draftData.refNo);
+    } else {
+      // Generate a reference number if not provided
+      draftData.refNo = `REF-${Date.now().toString().slice(-6)}`;
+    }
+
+    // Set initial status if not provided
+    if (!draftData.status) {
+      draftData.status = 'safe_draft';
+    }
+
+    // Save or update the draft
+    const draft = await InwardDraft.findOneAndUpdate(
+      { uniqueId: draftData.uniqueId },
+      draftData,
+      { upsert: true, new: true }
+    );
+
+    console.log('✅ Draft saved successfully:', draft);
+
+    res.status(200).json({
+      status: "success",
+      message: "Draft saved successfully",
+      data: {
+        draftId: draft.uniqueId,
+        refNo: draft.refNo,
+        status: draft.status
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error saving draft:', error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to save draft",
+      error: error.message
+    });
+  }
+});
+
+// Move to Pending API
+app.post('/api/inward/:uniqueId/move-to-pending', async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+    const { reason } = req.body;
+
+    console.log(`📥 Moving form ${uniqueId} to pending`);
+
+    // First check if the form exists
+    const existingForm = await InwardDraft.findOne({ uniqueId });
+    
+    if (!existingForm) {
+      return res.status(404).json({
+        status: "error",
+        message: "Form not found"
+      });
+    }
+
+    // Update the form status and reason
+    const updatedForm = await InwardDraft.findOneAndUpdate(
+      { uniqueId },
+      { 
+        status: "pending",
+        reason,
+        lastUpdated: new Date(),
+        // Ensure refNo is a string
+        refNo: existingForm.refNo ? String(existingForm.refNo) : `REF-${Date.now().toString().slice(-6)}`
+      },
+      { new: true }
+    );
+
+    console.log('✅ Form moved to pending:', updatedForm);
+
+    res.status(200).json({
+      status: "success",
+      message: "Form moved to pending section",
+      data: {
+        uniqueId: updatedForm.uniqueId,
+        status: updatedForm.status,
+        refNo: updatedForm.refNo
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error moving to pending:', error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to move form to pending",
+      error: error.message
+    });
+  }
+});
+
+// Get Forms by Status API
+app.get('/api/inward/status/:status', async (req, res) => {
+  try {
+    const { status } = req.params;
+    console.log(`📥 Fetching forms with status: ${status}`);
+
+    // Validate status
+    const validStatuses = ['safe_draft', 'pending', 'incomplete'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        status: "error",
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    // Find forms with the specified status
+    const forms = await InwardDraft.find({ status });
+
+    // Process forms to ensure refNo is always a string
+    const processedForms = forms.map(form => {
+      const formObj = form.toObject();
+      
+      // Ensure refNo is a string
+      if (!formObj.refNo) {
+        formObj.refNo = `REF-${form._id.toString().slice(-6)}`;
+      } else {
+        formObj.refNo = String(formObj.refNo);
+      }
+
+      return formObj;
+    });
+
+    console.log(`✅ Found ${processedForms.length} ${status} forms`);
+
+    res.status(200).json({
+      status: "success",
+      message: `${status} forms retrieved successfully`,
+      data: processedForms
+    });
+  } catch (error) {
+    console.error(`❌ Error fetching ${req.params.status} forms:`, error);
+    res.status(500).json({
+      status: "error",
+      message: `Failed to fetch ${req.params.status} forms`,
+      error: error.message
+    });
+  }
+});
+
+// Check Form Completion API
+app.get('/api/inward/:uniqueId/check-completion', async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+    console.log(`📥 Checking completion for form: ${uniqueId}`);
+
+    // Find the form
+    const form = await InwardDraft.findOne({ uniqueId });
+
+    if (!form) {
+      return res.status(404).json({
+        status: "error",
+        message: "Form not found"
+      });
+    }
+
+    // Define required fields
+    const requiredFields = [
+      'clientName',
+      'agreementNumber',
+      'make',
+      'model',
+      'registrationNumber',
+      'refNo'
+    ];
+
+    // Check if all required fields are filled
+    const missingFields = requiredFields.filter(field => !form[field]);
+    const isComplete = missingFields.length === 0;
+
+    console.log(`✅ Form completion check - Complete: ${isComplete}`);
+    if (!isComplete) {
+      console.log('Missing fields:', missingFields);
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: isComplete ? "Form is complete" : "Form is incomplete",
+      data: {
+        isComplete,
+        missingFields: missingFields,
+        uniqueId: form.uniqueId,
+        currentStatus: form.status
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error checking form completion:', error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to check form completion",
+      error: error.message
+    });
+  }
+});
 
 app.get('/outward/:uniqueId', async (req, res) => {
   try {
@@ -2187,6 +2544,11 @@ app.get('/api/yardowners', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+// New Authentication routes for Forgot Password, etc.
+app.use('/api/auth', require('./routes/auth'));
+
+// New Activity (History) routes
+app.use('/api/activity', require('./routes/activity'));
 
 
 // Import routes (ensure your routes file is also converted to ES module syntax)

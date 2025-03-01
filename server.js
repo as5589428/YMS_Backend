@@ -452,7 +452,7 @@ app.post('/finance/login', async (req, res) => {
       res.status(500).json({ message: 'Server error' });
   }
 });
-
+//aman
 // Route to get the profile data of a finance employee by empCode
 app.get('/finance/profile/:empCode', async (req, res) => {
   const { empCode } = req.params;

@@ -1,10 +1,10 @@
 const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
-const twilio = require('twilio');
+// const twilio = require('twilio');
 
 // Initialize Twilio client
-const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+// const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 // In-memory store for OTPs
 const otpStore = {};
@@ -80,33 +80,33 @@ exports.sendEmailOTP = async (req, res) => {
 };
 
 // Function to send OTP via SMS (for registration)
-exports.sendMobileOTP = async (req, res) => {
-  const { phone_number } = req.body;
-  try {
-    // Generate a 6-digit OTP and set expiry (10 minutes)
-    const otp = generateOTP();
-    const otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+// exports.sendMobileOTP = async (req, res) => {
+//   const { phone_number } = req.body;
+//   try {
+//     // Generate a 6-digit OTP and set expiry (10 minutes)
+//     const otp = generateOTP();
+//     const otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
 
-    // Store OTP in memory with expiry
-    otpStore[phone_number] = { otp, otpExpires: otpExpiry };
+//     // Store OTP in memory with expiry
+//     otpStore[phone_number] = { otp, otpExpires: otpExpiry };
 
-    // Debugging: Log the stored OTP
-    console.log('Stored OTP for phone:', otpStore[phone_number]);
+//     // Debugging: Log the stored OTP
+//     console.log('Stored OTP for phone:', otpStore[phone_number]);
 
-    // Send OTP via Twilio SMS
-    const message = await client.messages.create({
-      body: `Your OTP is: ${otp}`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone_number,
-    });
+//     // Send OTP via Twilio SMS
+//     const message = await client.messages.create({
+//       body: `Your OTP is: ${otp}`,
+//       from: process.env.TWILIO_PHONE_NUMBER,
+//       to: phone_number,
+//     });
 
-    console.log('OTP sent via SMS:', message.sid);
-    res.status(200).json({ message: 'OTP sent successfully' });
-  } catch (err) {
-    console.error('Error in sendMobileOTP:', err);
-    res.status(500).json({ message: err.message });
-  }
-};
+//     console.log('OTP sent via SMS:', message.sid);
+//     res.status(200).json({ message: 'OTP sent successfully' });
+//   } catch (err) {
+//     console.error('Error in sendMobileOTP:', err);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
 
 // Function to verify OTP (common for both email and mobile)
 exports.verifyOTP = async (req, res) => {

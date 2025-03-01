@@ -11,7 +11,7 @@ const userController = require('../controllers/authController');
 
 // Routes
 router.post('/send-email-otp', userController.sendEmailOTP); // Send OTP via Email (for password reset)
-router.post('/send-mobile-otp', userController.sendMobileOTP); // Send OTP via SMS (for registration)
+// router.post('/send-mobile-otp', userController.sendMobileOTP); // Send OTP via SMS (for registration)
 router.post('/verify-otp', userController.verifyOTP); // Verify OTP (common for both email and mobile)
 router.post('/reset-password', userController.resetPassword); // Reset password (for email OTP)
 

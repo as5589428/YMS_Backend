@@ -384,54 +384,56 @@ app.post('/yardowner/login', async (req, res) => {
 
 // Finance Login & Regiser 
 
-
-app.post('/finance/register', async (req, res) => {
+// Route to handle finance employee registration
+app.post('/finance/register', upload.fields([{ name: 'profileImage', maxCount: 1 }, { name: 'aadharImage', maxCount: 1 }]), async (req, res) => {
   const { empCode, name, email, aadharnumber, designation, whatsapp, mobile, companyName, password } = req.body;
+  const profileImageFile = req.files['profileImage'] ? req.files['profileImage'][0] : null;
+  const aadharImageFile = req.files['aadharImage'] ? req.files['aadharImage'][0] : null;
 
   // Validate that all required fields are provided
-  if (!empCode || !name ||!email ||!aadharnumber || !designation || !whatsapp || !mobile || !companyName || !password) {
-      return res.status(400).json({ message: 'All fields are required.' });
+  if (!empCode || !name || !email || !aadharnumber || !designation || !whatsapp || !mobile || !companyName || !password) {
+    return res.status(400).json({ message: 'All fields are required.' });
   }
 
   try {
-      // Check if the username already exists
-     // const existingUser = await FinanceEmployee.findOne({ username });
-      //if (existingUser) {
-        //  return res.status(400).json({ message: 'Username already exists' });
-      //}
+    // Check if the employee code already exists
+    const existingEmpCode = await FinanceEmployee.findOne({ empCode });
+    if (existingEmpCode) {
+      return res.status(400).json({ message: 'Employee Code already exists' });
+    }
 
-      // Check if the employee code already exists
-      const existingEmpCode = await FinanceEmployee.findOne({ empCode });
-      if (existingEmpCode) {
-          return res.status(400).json({ message: 'Employee Code already exists' });
-      }
+    // Upload profile image to Cloudinary
+    const profileImageResult = profileImageFile ? await cloudinary.uploader.upload(profileImageFile.path, { folder: 'financeregisteration' }) : null;
+    const aadharImageResult = aadharImageFile ? await cloudinary.uploader.upload(aadharImageFile.path, { folder: 'financeregisteration' }) : null;
 
-      // Hash the password
-      const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Create a new FinanceEmployee instance
-      const financeEmployee = new FinanceEmployee({
-          empCode,
-          name,
-          email,
-          aadharnumber,
-          designation,
-          whatsapp,
-          mobile,
-          companyName,
-          //username,
-          password: hashedPassword // Save the hashed password
-      });
+    // Create a new FinanceEmployee instance
+    const financeEmployee = new FinanceEmployee({
+      empCode,
+      name,
+      email,
+      aadharnumber,
+      designation,
+      whatsapp,
+      mobile,
+      companyName,
+      password: hashedPassword,
+      profileImageUrl: profileImageResult ? profileImageResult.secure_url : null,
+      aadharImageUrl: aadharImageResult ? aadharImageResult.secure_url : null
+    });
 
-      // Save the new finance employee to the database
-      await financeEmployee.save();
-      res.status(201).json({ message: 'Finance Employee registered successfully.' });
+    // Save the new finance employee to the database
+    await financeEmployee.save();
+    res.status(201).json({ message: 'Finance Employee registered successfully.' });
   } catch (error) {
-      // Log the error for debugging purposes
-      console.error('Error registering finance employee:', error);
-      res.status(400).json({ message: 'Error registering finance employee: ' + error.message });
+    // Log the error for debugging purposes
+    console.error('Error registering finance employee:', error);
+    res.status(400).json({ message: 'Error registering finance employee: ' + error.message });
   }
 });
+
 // Finance Employee Login endpoint
 app.post('/finance/login', async (req, res) => {
   const { empCode, password } = req.body;
@@ -450,23 +452,37 @@ app.post('/finance/login', async (req, res) => {
       res.status(500).json({ message: 'Server error' });
   }
 });
+
 // Route to get the profile data of a finance employee by empCode
 app.get('/finance/profile/:empCode', async (req, res) => {
-const { empCode } = req.params;
+  const { empCode } = req.params;
 
-try {
+  try {
+    // Find the finance employee by empCode
     const financeEmployee = await FinanceEmployee.findOne({ empCode });
 
     if (!financeEmployee) {
-        return res.status(404).json({ message: 'Finance Employee not found' });
+      return res.status(404).json({ message: 'Finance Employee not found' });
     }
 
     // Send the profile data as a JSON response
-    res.status(200).json(financeEmployee);
-} catch (error) {
+    res.status(200).json({
+      empCode: financeEmployee.empCode,
+      name: financeEmployee.name,
+      email: financeEmployee.email,
+      aadharNumber: financeEmployee.aadharnumber, // Ensure this matches the frontend expectation
+      designation: financeEmployee.designation,
+      whatsapp: financeEmployee.whatsapp,
+      mobile: financeEmployee.mobile,
+      companyName: financeEmployee.companyName,
+      profileImageUrl: financeEmployee.profileImageUrl, // Ensure this field exists in the model
+    });
+  } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
-}
+  }
 });
+
+
 // Route to create a new gate pass
 // Updated route without photo handling
 // Route to create a new gate pass
@@ -982,16 +998,18 @@ async function uploadToCloudinary(filePath, folderName) {
 // Defining a route to fetch inward data
 
 
-app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
+app.post('/api/inward', upload.fields([
+  { name: 'vahan_image', maxCount: 1 },
+  { name: 'preIntimationLetter', maxCount: 1 },
+  { name: 'postIntimationLetter', maxCount: 1 },
+  { name: 'authorizationLetter', maxCount: 1 }
+]), async (req, res) => {
   try {
-    // Extract the JWT token from the Authorization header
     const token = req.headers.authorization?.split(' ')[1];
-
     if (!token) {
       return res.status(401).json({ message: 'Unauthorized: No token provided' });
     }
 
-    // Verify the token and extract user data
     let decoded;
     try {
       decoded = jwt.verify(token, secretKey);
@@ -999,36 +1017,24 @@ app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
       return res.status(403).json({ message: 'Token verification failed', error: error.message });
     }
 
-    // Extract userId from the decoded token
     const userId = decoded.userId;
-
-    // Get form status (default is "submitted")
     const formStatus = req.body.status || "submitted";
-
-    // Check if an existing draft exists
     let existingDraft = await InwardDraft.findOne({ uniqueId: req.body.uniqueId });
-
-    // Generate a unique ID if it's a new form
     const uniqueId = existingDraft ? existingDraft.uniqueId : await generateUniqueID();
 
-    // Validate required fields for submission (not required for drafts)
     if (formStatus === "submitted" && (!req.body.clientName || !req.body.agreementNumber)) {
       return res.status(400).json({ message: 'Client Name and Agreement Number are required' });
     }
 
-    // Upload the vahan_image to Cloudinary (only for submitted forms)
-    let vahanImageUrl = existingDraft?.vahanImage || null;
-    if (req.file) {
-      try {
-        vahanImageUrl = await uploadToCloudinary(req.file.path, 'vahan-image');
-      } catch (error) {
-        console.error('Error uploading to Cloudinary:', error);
-        return res.status(500).json({ message: 'Failed to upload vahan image', error: error.message });
-      }
-    }
+    // Upload images if provided
+    const uploadImage = async (file, folder) => file ? await uploadToCloudinary(file.path, folder) : null;
+
+    let vahanImageUrl = await uploadImage(req.files?.vahan_image?.[0], 'vahan-image');
+    let preIntimationLetterUrl = await uploadImage(req.files?.preIntimationLetter?.[0], 'pre-intimation-letter');
+    let postIntimationLetterUrl = await uploadImage(req.files?.postIntimationLetter?.[0], 'post-intimation-letter');
+    let authorizationLetterUrl = await uploadImage(req.files?.authorizationLetter?.[0], 'authorization-letter');
 
     if (formStatus === "draft") {
-      // Save or update the draft
       const draftData = {
         userId,
         uniqueId,
@@ -1046,22 +1052,32 @@ app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
         yard: req.body.yard,
         inwardDateTime: req.body.inwardDateTime,
         geoLocation: req.body.geoLocation,
-        vehicleDetails: req.body.vehicleDetails || {},
+        vehicleDetails: {
+          customerName: req.body.vehicleDetails?.customerName || '',
+          engineNumber: req.body.vehicleDetails?.engineNumber || '',
+          chassisNumber: req.body.vehicleDetails?.chassisNumber || '',
+          color: req.body.vehicleDetails?.color || '',
+          vehicleClass: req.body.vehicleDetails?.vehicleClass || '',
+          vehicleCondition: req.body.vehicleDetails?.vehicleCondition || '',
+          keyLocation: req.body.vehicleDetails?.keyLocation || '',
+          transmission: req.body.vehicleDetails?.transmission || '',
+          remarks: req.body.vehicleDetails?.remarks || '',
+        },
         checklist: Array.isArray(req.body.checklist) ? req.body.checklist : [],
         vahanImage: vahanImageUrl,
+        preIntimationLetter: preIntimationLetterUrl,
+        postIntimationLetter: postIntimationLetterUrl,
+        authorizationLetter: authorizationLetterUrl,
         lastUpdated: new Date(),
         status: "draft"
       };
 
       await InwardDraft.findOneAndUpdate({ uniqueId }, draftData, { upsert: true, new: true });
-
       return res.status(200).json({ message: 'Draft saved successfully', uniqueId });
     }
 
-    // If the form is submitted, remove it from drafts
     await InwardDraft.deleteOne({ uniqueId });
 
-    // Save the inward form data
     const inwardData = new InwardForm({
       userId,
       uniqueId,
@@ -1079,19 +1095,32 @@ app.post('/api/inward', upload.single('vahan_image'), async (req, res) => {
       yard: req.body.yard,
       inwardDateTime: req.body.inwardDateTime,
       geoLocation: req.body.geoLocation,
-      vehicleDetails: req.body.vehicleDetails || {},
+      vehicleDetails: {
+        customerName: req.body.vehicleDetails?.customerName || '',
+        engineNumber: req.body.vehicleDetails?.engineNumber || '',
+        chassisNumber: req.body.vehicleDetails?.chassisNumber || '',
+        color: req.body.vehicleDetails?.color || '',
+        vehicleClass: req.body.vehicleDetails?.vehicleClass || '',
+        vehicleCondition: req.body.vehicleDetails?.vehicleCondition || '',
+        keyLocation: req.body.vehicleDetails?.keyLocation || '',
+        transmission: req.body.vehicleDetails?.transmission || '',
+        remarks: req.body.vehicleDetails?.remarks || '',
+      },
       checklist: Array.isArray(req.body.checklist) ? req.body.checklist : [],
       vahanImage: vahanImageUrl,
+      preIntimationLetter: preIntimationLetterUrl,
+      postIntimationLetter: postIntimationLetterUrl,
+      authorizationLetter: authorizationLetterUrl,
     });
 
     const savedInward = await inwardData.save();
-
     res.status(201).json({ message: 'Inward form submitted successfully', data: savedInward });
   } catch (err) {
     console.error('Error processing inward form data:', err);
     res.status(500).json({ message: 'Error processing inward form data', error: err.message });
   }
 });
+
 app.post('/api/inward/:id/photos', upload.fields([
   { name: 'frontView', maxCount: 1 },
   { name: 'rightView', maxCount: 1 },
@@ -1108,7 +1137,8 @@ app.post('/api/inward/:id/photos', upload.fields([
   { name: 'tyre7', maxCount: 1 },
   { name: 'tyre8', maxCount: 1 },
   { name: 'tyre9', maxCount: 1 },
-  { name: 'tyre10', maxCount: 1 }
+  { name: 'tyre10', maxCount: 1 },
+  { name: 'stepneyTyre', maxCount: 1 } // Added stepneyTyre here
 ]), async (req, res) => {
   try {
     const uniqueId = req.params.id;
@@ -1186,7 +1216,8 @@ app.post('/api/inward/:id/photos', upload.fields([
       const tyreField = `tyre${i}`;
       inwardForm.tyrePhotos[tyreField] = uploadedPhotos[tyreField] || null;
     }
-
+ // Add stepneyTyre to tyrePhotos
+ inwardForm.tyrePhotos.stepneyTyre = uploadedPhotos.stepneyTyre || null; // Added stepneyTyre here
     // Step 5: Save the updated inward form
     const updatedInward = await inwardForm.save();
 
@@ -1205,32 +1236,39 @@ app.post('/api/inward/:id/photos', upload.fields([
 });
 
 
-// JOB SCHEDULE FOR DRAFT
-
 const cron = require('node-cron');
+const axios = require('axios'); // For making API calls
 
-cron.schedule('*/10 * * * *', async () => { // Runs every 10 minutes
+cron.schedule('*/10 * * * *', async () => {
   try {
     const timeoutPeriod = 30 * 60 * 1000; // 30 minutes
     const cutoffTime = new Date(Date.now() - timeoutPeriod);
 
-    const incompleteDrafts = await InwardDraft.find({ 
+    const staleDrafts = await InwardDraft.find({ 
       status: "draft", 
       lastUpdated: { $lt: cutoffTime } 
     });
 
-    for (const draft of incompleteDrafts) {
-      draft.status = "incomplete"; // Use "incomplete" instead of "pending"
-      draft.reason = "timeout";
-      draft.lastUpdated = new Date();
-      await draft.save();
+    for (const draft of staleDrafts) {
+      // Call the "move to pending" API
+      try {
+        const response = await axios.post('http://192.168.1.8:5000/move-to-pending', {
+          draftId: draft._id
+        });
+
+        console.log(`Moved draft ${draft._id} to pending:`, response.data);
+      } catch (apiError) {
+        console.error(`Failed to move draft ${draft._id} to pending:`, apiError);
+      }
     }
 
-   
+    console.log(`Checked drafts, ${staleDrafts.length} sent to pending`);
   } catch (error) {
-    console.error("Failed to check incomplete drafts:", error);
+    console.error("Failed to check and update drafts:", error);
   }
 });
+
+
  
 // Save Draft API
 app.post('/api/inward/draft', async (req, res) => {
@@ -1404,7 +1442,6 @@ app.get('/api/inward/:uniqueId/check-completion', async (req, res) => {
       'agreementNumber',
       'make',
       'model',
-      'registrationNumber',
       'refNo'
     ];
 
@@ -1437,6 +1474,117 @@ app.get('/api/inward/:uniqueId/check-completion', async (req, res) => {
   }
 });
 
+
+//Refilling of the Forms of Pending
+app.get('/api/inward/:uniqueId/refill', async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+    console.log(`📥 Fetching form for refill: ${uniqueId}`);
+
+    // Find the form in the database
+    const form = await InwardDraft.findOne({ uniqueId });
+
+    if (!form) {
+      return res.status(404).json({
+        status: "error",
+        message: "Form not found"
+      });
+    }
+
+    // Return the form data
+    res.status(200).json({
+      status: "success",
+      message: "Form data fetched successfully",
+      data: form
+    });
+  } catch (error) {
+    console.error('❌ Error fetching form for refill:', error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to fetch form data",
+      error: error.message
+    });
+  }
+});
+
+// Deletion of the pending form by the user
+app.delete('/api/inward/:uniqueId/reject', async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+    console.log(`📥 Rejecting form: ${uniqueId}`);
+
+    // Find and delete the form
+    const deletedForm = await InwardDraft.findOneAndDelete({ uniqueId });
+
+    if (!deletedForm) {
+      return res.status(404).json({
+        status: "error",
+        message: "Form not found"
+      });
+    }
+
+    // Return success response
+    res.status(200).json({
+      status: "success",
+      message: "Form rejected and deleted successfully",
+      data: {
+        uniqueId: deletedForm.uniqueId,
+        refNo: deletedForm.refNo
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error rejecting form:', error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to reject form",
+      error: error.message
+    });
+  }
+});
+
+
+// submit form from InwardDraft to Inward Form
+app.post('/api/inward/:uniqueId/submit', async (req, res) => {
+  try {
+    const { uniqueId } = req.params;
+    console.log(`📥 Submitting form: ${uniqueId}`);
+
+    // Find the form in the InwardDraft collection
+    const form = await InwardDraft.findOne({ uniqueId });
+
+    if (!form) {
+      return res.status(404).json({
+        status: "error",
+        message: "Form not found"
+      });
+    }
+
+    // Move the form to the InwardForm collection (or update status)
+    const submittedForm = new InwardForm(form.toObject()); // Assuming InwardForm is another schema
+    await submittedForm.save();
+
+    // Delete the form from the InwardDraft collection
+    await InwardDraft.findOneAndDelete({ uniqueId });
+
+    // Return success response
+    res.status(200).json({
+      status: "success",
+      message: "Form submitted successfully",
+      data: {
+        uniqueId: submittedForm.uniqueId,
+        refNo: submittedForm.refNo,
+        status: "submitted"
+      }
+    });
+  } catch (error) {
+    console.error(' Error submitting form:', error);
+    res.status(500).json({
+      status: "error",
+      message: "Failed to submit form",
+      error: error.message
+    });
+  }
+});
 app.get('/outward/:uniqueId', async (req, res) => {
   try {
     const uniqueId = Number(req.params.uniqueId);
@@ -2303,7 +2451,8 @@ app.post('/api/outward/:id/photos', upload.fields([
   { name: 'tyre7', maxCount: 1 },
   { name: 'tyre8', maxCount: 1 },
   { name: 'tyre9', maxCount: 1 },
-  { name: 'tyre10', maxCount: 1 }
+  { name: 'tyre10', maxCount: 1 },
+  
 ]), async (req, res) => {
   try {
     const uniqueId = req.params.id;

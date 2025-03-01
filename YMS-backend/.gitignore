@@ -1,0 +1,23 @@
+# Ignore node_modules
+node_modules/*
+
+# Ignore Elastic Beanstalk files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore logs and cache
+logs/
+cache/
+
+# Ensure `upload/` is **not** ignored
+!uploads/
+!uploads/**
+
+# Ignore other upload-related files (optional)
+uploads_tmp/
+uploads_cache/

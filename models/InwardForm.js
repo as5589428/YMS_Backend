@@ -1,16 +1,17 @@
 const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid'); // Import the UUID generator
+
 // Define the checklist item schema
 const ChecklistItemSchema = new mongoose.Schema({
   label: { type: String, required: true },
   yes: { type: Boolean, default: false },
   no: { type: Boolean, default: false }
 });
- 
+
 // Define the main schema
 const InwardFormSchema = new mongoose.Schema({
   uniqueId: {
-    type: String, 
+    type: String,
     default: uuidv4, // Generate a unique ID automatically
     unique: true     // Ensure uniqueness in the database
   },
@@ -38,11 +39,16 @@ const InwardFormSchema = new mongoose.Schema({
     vehicleCondition: { type: String, required: true },
     keyLocation: { type: String, required: true },
     transmission: { type: String, required: true },
-    remarks: { type: String }
-
+    remarks: { type: String }          
   },
-   vahanImage: String,
-  // Checklist section as an array of ChecklistItem
+  
+  // Images
+  vahanImage: { type: String, required: false }, // Required image
+  preIntimationLetter: { type: String, required: false },  // Optional
+  postIntimationLetter: { type: String, required: false }, // Optional
+  authorizationLetter: { type: String, required: false }, // Optional
+
+  // Checklist section
   checklist: {
     type: [ChecklistItemSchema],
     default: [
@@ -75,10 +81,9 @@ const InwardFormSchema = new mongoose.Schema({
       { label: "Cultivator", yes: false, no: false },
       { label: "Tyre", yes: false, no: false }
     ]
- 
   },
-  
 
+  // Vehicle photos
   vehiclePhotos: {
     frontView: { type: String, default: null },
     rightView: { type: String, default: null },
@@ -86,9 +91,9 @@ const InwardFormSchema = new mongoose.Schema({
     leftView: { type: String, default: null },
     engineView: { type: String, default: null },
     meterReading: { type: String, default: null }
-  }
-,  
-  // New Tire Photos section
+  },
+
+  // Tire photos
   tyrePhotos: {
     tyre1: { type: String, default: null },
     tyre2: { type: String, default: null },
@@ -99,11 +104,11 @@ const InwardFormSchema = new mongoose.Schema({
     tyre7: { type: String, default: null },
     tyre8: { type: String, default: null },
     tyre9: { type: String, default: null },
-    tyre10: { type: String, default: null }
+    tyre10: { type: String, default: null },
+    stepneyTyre: { type: String, default: null } // Optional stepney tyre image
   },
 },{ timestamps: true });
 
 const InwardForm = mongoose.model('InwardForm', InwardFormSchema);
-
 
 module.exports = InwardForm;

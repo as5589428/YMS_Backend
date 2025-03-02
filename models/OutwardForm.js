@@ -40,6 +40,13 @@ const OutwardFormSchema = new mongoose.Schema({
   // ✅ ADD FIELD FOR RELEASE DATE WHEN APPROVED
   releaseDateTime: { type: String, default: null },
 
+  // ✅ ADD FIELD FOR RELEASE BY (CUSTOMER OR FINANCE)
+  releaseBy: {
+    type: String,
+    enum: ["Customer Release", "Finance Release"], // Allowed values
+    required: true, // Make it required
+  },
+
   // Vehicle Details section
   vehicleDetails: {
     customerName: { type: String, required: true },

@@ -1252,7 +1252,7 @@ cron.schedule('*/10 * * * *', async () => {
     for (const draft of staleDrafts) {
       // Call the "move to pending" API
       try {
-        const response = await axios.post('http://192.168.1.8:5000/move-to-pending', {
+        const response = await axios.post('https://yms-backend.onrender.com/move-to-pending', {
           draftId: draft._id
         });
 
@@ -2318,7 +2318,7 @@ app.post('/api/verify-payment', async (req, res) => {
       res.status(500).json({ error: "Payment verification failed" });
   }
 });
-// Upload outward photos API
+
 
 // app.post('/api/outward/:id/photos', upload.fields([
 //   { name: 'frontView', maxCount: 1 },
@@ -2336,44 +2336,50 @@ app.post('/api/verify-payment', async (req, res) => {
 //   { name: 'tyre7', maxCount: 1 },
 //   { name: 'tyre8', maxCount: 1 },
 //   { name: 'tyre9', maxCount: 1 },
-//   { name: 'tyre10', maxCount: 1 }
+//   { name: 'tyre10', maxCount: 1 },
+  
 // ]), async (req, res) => {
 //   try {
 //     const uniqueId = req.params.id;
 
 //     // Step 1: Fetch data from InwardForm
-//     const inwardForm = await InwardForm.findOne({ uniqueId: uniqueId });
+//     const inwardForm = await InwardForm.findOne({ uniqueId });
 //     if (!inwardForm) {
 //       return res.status(404).json({ message: 'Inward form not found' });
 //     }
 
 //     // Step 2: Create new OutwardForm with data from InwardForm
-//     const outwardFormData = {
-//       uniqueId: uniqueId,
-//       clientName: inwardForm.clientName,
-//       financeCompanyName: inwardForm.financeCompanyName,
-//       agreementNumber: inwardForm.agreementNumber,
-//       make: inwardForm.make,
-//       model: inwardForm.model,
-//       variant: inwardForm.variant,
-//       refNo: inwardForm.refNo,
-//       segment: inwardForm.segment,
-//       loanNo: inwardForm.loanNo,
-//       fuelType: inwardForm.fuelType,
-//       odometerReading: inwardForm.odometerReading,
-//       yard: inwardForm.yard,
-//       outwardDateTime: new Date().toISOString(),
-//       geoLocation: inwardForm.geoLocation,
-//       vehicleDetails: inwardForm.vehicleDetails,
-//       checklist: inwardForm.checklist
-//   };
-  
-//   // Create an instance of the model
-//   let outwardForm = new OutwardForm(outwardFormData);
-  
-//   // ✅ Correct way to save
-//   await outwardForm.save(); 
-  
+//     // Step 2: Create new OutwardForm with data from InwardForm
+// const outwardFormData = {
+//   uniqueId,
+//   clientName: inwardForm.clientName,
+//   financeCompanyName: inwardForm.financeCompanyName,
+//   agreementNumber: inwardForm.agreementNumber,
+//   make: inwardForm.make,
+//   model: inwardForm.model,
+//   variant: inwardForm.variant,
+//   refNo: inwardForm.refNo,
+//   segment: inwardForm.segment,
+//   loanNo: inwardForm.loanNo,
+//   fuelType: inwardForm.fuelType,
+//   odometerReading: inwardForm.odometerReading,
+//   yard: inwardForm.yard,
+//   outwardDateTime: new Date().toISOString(),
+//   geoLocation: inwardForm.geoLocation,
+//   vehicleDetails: inwardForm.vehicleDetails,
+//   checklist: inwardForm.checklist,
+//   status: "pending", // Default status to pending until admin approves
+//   releaseDateTime: null, // Default to null until approved
+//   releaseBy: inwardForm.releaseBy || null // Add releaseBy if provided by the user, otherwise default to null
+// };
+
+// // If the user provides a releaseBy value, include it in the outwardFormData
+// if (inwardForm.releaseBy) {
+//   outwardFormData.releaseBy = inwardForm.releaseBy;
+// }
+//     let outwardForm = new OutwardForm(outwardFormData);
+//     await outwardForm.save(); 
+
 //     // Helper function to upload to Cloudinary
 //     const uploadToCloudinary = async (filePath, fieldName) => {
 //       try {
@@ -2396,8 +2402,7 @@ app.post('/api/verify-payment', async (req, res) => {
 
 //     const uploadPromises = Object.keys(req.files).map(async (fieldName) => {
 //       const file = req.files[fieldName][0];
-//       const uploadedUrl = await uploadToCloudinary(file.path, fieldName);
-//       uploadedPhotos[fieldName] = uploadedUrl;
+//       uploadedPhotos[fieldName] = await uploadToCloudinary(file.path, fieldName);
 //     });
 
 //     await Promise.all(uploadPromises);
@@ -2422,19 +2427,18 @@ app.post('/api/verify-payment', async (req, res) => {
 
 //     res.status(200).json({
 //       message: 'Outward form created and photos uploaded successfully',
-//       uniqueId: uniqueId,
+//       uniqueId,
 //       data: outwardForm,
 //     });
 
 //   } catch (err) {
-//     console.error('Error details:', err);
+//     console.error('Error details:', err); 
 //     res.status(500).json({
 //       message: 'Error processing outward form',
 //       error: err.message,
 //     });
 //   }
 // });
-
 app.post('/api/outward/:id/photos', upload.fields([
   { name: 'frontView', maxCount: 1 },
   { name: 'rightView', maxCount: 1 },
@@ -2452,7 +2456,6 @@ app.post('/api/outward/:id/photos', upload.fields([
   { name: 'tyre8', maxCount: 1 },
   { name: 'tyre9', maxCount: 1 },
   { name: 'tyre10', maxCount: 1 },
-  
 ]), async (req, res) => {
   try {
     const uniqueId = req.params.id;
@@ -2482,11 +2485,13 @@ app.post('/api/outward/:id/photos', upload.fields([
       geoLocation: inwardForm.geoLocation,
       vehicleDetails: inwardForm.vehicleDetails,
       checklist: inwardForm.checklist,
-      status: "pending" // Default status to pending until admin approves
+      status: "pending", // Default status to pending until admin approves
+      releaseDateTime: null, // Default to null until approved
+      releaseBy: req.body.releaseBy || null, // Set releaseBy from request body or default to null
     };
 
     let outwardForm = new OutwardForm(outwardFormData);
-    await outwardForm.save(); 
+    await outwardForm.save();
 
     // Helper function to upload to Cloudinary
     const uploadToCloudinary = async (filePath, fieldName) => {
@@ -2522,7 +2527,7 @@ app.post('/api/outward/:id/photos', upload.fields([
       backView: uploadedPhotos.backView || null,
       leftView: uploadedPhotos.leftView || null,
       engineView: uploadedPhotos.engineView || null,
-      meterReading: uploadedPhotos.meterReading || null
+      meterReading: uploadedPhotos.meterReading || null,
     };
 
     outwardForm.tyrePhotos = {};
@@ -2540,14 +2545,13 @@ app.post('/api/outward/:id/photos', upload.fields([
     });
 
   } catch (err) {
-    console.error('Error details:', err); 
+    console.error('Error details:', err);
     res.status(500).json({
       message: 'Error processing outward form',
       error: err.message,
     });
   }
 });
-
 app.post('/api/admin/approval', async (req, res) => {
   try {
     const { uniqueId, decision } = req.body;

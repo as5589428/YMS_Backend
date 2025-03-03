@@ -1235,38 +1235,38 @@ app.post('/api/inward/:id/photos', upload.fields([
   }
 });
 
+//Change by abdul
+// const cron = require('node-cron');
+// const axios = require('axios'); // For making API calls
 
-const cron = require('node-cron');
-const axios = require('axios'); // For making API calls
+// cron.schedule('*/10 * * * *', async () => {
+//   try {
+//     const timeoutPeriod = 30 * 60 * 1000; // 30 minutes
+//     const cutoffTime = new Date(Date.now() - timeoutPeriod);
 
-cron.schedule('*/10 * * * *', async () => {
-  try {
-    const timeoutPeriod = 30 * 60 * 1000; // 30 minutes
-    const cutoffTime = new Date(Date.now() - timeoutPeriod);
+//     const staleDrafts = await InwardDraft.find({ 
+//       status: "draft", 
+//       lastUpdated: { $lt: cutoffTime } 
+//     });
 
-    const staleDrafts = await InwardDraft.find({ 
-      status: "draft", 
-      lastUpdated: { $lt: cutoffTime } 
-    });
+//     for (const draft of staleDrafts) {
+//       // Call the "move to pending" API
+//       try {
+//         const response = await axios.post('https://yms-backend.onrender.com/move-to-pending', {
+//           draftId: draft._id
+//         });
 
-    for (const draft of staleDrafts) {
-      // Call the "move to pending" API
-      try {
-        const response = await axios.post('https://yms-backend.onrender.com/move-to-pending', {
-          draftId: draft._id
-        });
+//         console.log(`Moved draft ${draft._id} to pending:`, response.data);
+//       } catch (apiError) {
+//         console.error(`Failed to move draft ${draft._id} to pending:`, apiError);
+//       }
+//     }
 
-        console.log(`Moved draft ${draft._id} to pending:`, response.data);
-      } catch (apiError) {
-        console.error(`Failed to move draft ${draft._id} to pending:`, apiError);
-      }
-    }
-
-    console.log(`Checked drafts, ${staleDrafts.length} sent to pending`);
-  } catch (error) {
-    console.error("Failed to check and update drafts:", error);
-  }
-});
+//     console.log(`Checked drafts, ${staleDrafts.length} sent to pending`);
+//   } catch (error) {
+//     console.error("Failed to check and update drafts:", error);
+//   }
+// });
 
 
  
@@ -1371,23 +1371,30 @@ app.post('/api/inward/:uniqueId/move-to-pending', async (req, res) => {
   }
 });
 
+//change by abdul
 // Get Forms by Status API
+// Get Forms by Status API (supports multiple statuses)
 app.get('/api/inward/status/:status', async (req, res) => {
   try {
     const { status } = req.params;
     console.log(`📥 Fetching forms with status: ${status}`);
 
-    // Validate status
+    // Split the status parameter into an array of statuses
+    const statuses = status.split(',');
+
+    // Validate statuses
     const validStatuses = ['safe_draft', 'pending', 'incomplete'];
-    if (!validStatuses.includes(status)) {
+    const invalidStatuses = statuses.filter(s => !validStatuses.includes(s));
+
+    if (invalidStatuses.length > 0) {
       return res.status(400).json({
         status: "error",
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+        message: `Invalid status(es): ${invalidStatuses.join(', ')}. Must be one of: ${validStatuses.join(', ')}`
       });
     }
 
-    // Find forms with the specified status
-    const forms = await InwardDraft.find({ status });
+    // Find forms with the specified statuses
+    const forms = await InwardDraft.find({ status: { $in: statuses } });
 
     // Process forms to ensure refNo is always a string
     const processedForms = forms.map(form => {
@@ -1403,18 +1410,18 @@ app.get('/api/inward/status/:status', async (req, res) => {
       return formObj;
     });
 
-    console.log(`✅ Found ${processedForms.length} ${status} forms`);
+    console.log(`✅ Found ${processedForms.length} forms with status(es): ${statuses.join(', ')}`);
 
     res.status(200).json({
       status: "success",
-      message: `${status} forms retrieved successfully`,
+      message: `Forms with status(es): ${statuses.join(', ')} retrieved successfully`,
       data: processedForms
     });
   } catch (error) {
-    console.error(`❌ Error fetching ${req.params.status} forms:`, error);
+    console.error(`❌ Error fetching forms with status(es): ${req.params.status}:`, error);
     res.status(500).json({
       status: "error",
-      message: `Failed to fetch ${req.params.status} forms`,
+      message: `Failed to fetch forms with status(es): ${req.params.status}`,
       error: error.message
     });
   }
